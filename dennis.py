@@ -11,7 +11,7 @@ for day in monday_att:
     #print(day["season"])
     date_month = day["date"][5:7]
     #Checks if the game is in the 2023-2024 regular season
-    if  season_type == 'regular-season' and int(date_month) > 8:
+    if season_type == 'regular-season' and int(date_month) > 8 and count < 101:
         print(day["date"])
         for game in day["competitions"]:
             print(game["id"])
@@ -25,4 +25,6 @@ for day in monday_att:
             print(loc_tuple)
             if loc_tuple not in city_list:
                 city_list.append(loc_tuple)
+        count += 1
+        print(count)
 print(city_list)
