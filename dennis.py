@@ -4,14 +4,25 @@ monday_url = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scorebo
 monday_dict = requests.get(monday_url)
 monday_data = monday_dict.json()
 monday_att = monday_data["events"]
-id_list = []
+city_list = []
+count = 0
 for day in monday_att:
-    #print(day["competitions"])
-    for game in day["competitions"]:
-        id = game["id"]
-        print(id)
-        print("__________________________________")
-        if id not in id_list:
-            print(game["attendance"])
-            id_list.append(id)
-            #print(game["venue"]["address"])
+    season_type = day["season"]['slug']
+    #print(day["season"])
+    date_month = day["date"][5:7]
+    #Checks if the game is in the 2023-2024 regular season
+    if  season_type == 'regular-season' and int(date_month) > 8:
+        print(day["date"])
+        for game in day["competitions"]:
+            print(game["id"])
+            #print("__________________________________")
+            #print(game["attendance"])
+            #print(game["venue"]["address"]["city"])
+            if "state" in game["venue"]["address"].keys():
+                loc_tuple = (game["venue"]["address"]["city"], game["venue"]["address"]["state"])
+            else:
+                loc_tuple = (game["venue"]["address"]["city"], game["venue"]["address"]["country"])
+            print(loc_tuple)
+            if loc_tuple not in city_list:
+                city_list.append(loc_tuple)
+print(city_list)
