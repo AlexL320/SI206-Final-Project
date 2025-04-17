@@ -45,20 +45,45 @@ for day in monday_att:
 #print(city_list)
 #print(data_dict)
 
-# Creates the databse and adds the header
-cur.execute(""" CREATE TABLE IF NOT EXISTS Games (date TEXT, location TEXT, attendance INTEGER) """)
+""" for index in range(0, len(city_list)):
+    number = index
+    location = str(city_list[index])
+    cur.execute("INSERT OR IGNORE INTO Location (number, location) VALUES (?,?)", (number, location))
+    conn.commit() """
+
+# Creates the database for the city list
+cur.execute(""" CREATE TABLE IF NOT EXISTS Location (number INTEGER, location Text, UNIQUE (number, location)) """)
+conn.commit()
+
+# Creates the databsse and adds the header
+cur.execute(""" CREATE TABLE IF NOT EXISTS Games (year INTEGER, month INTEGER, day INTEGER, location INTEGER, attendance INTEGER, UNIQUE (year, month, day, location, attendance)) """)
 conn.commit()
 
 
 attendance_list = []
+data_counter = 0
+place = 0
 for key,value in data_dict.items():
     #print(key, value)
-    date = key
-    location = str(value[0])
-    attendance = value[1]
-    attendance_list.append(attendance)
-    cur.execute("INSERT OR IGNORE INTO Games (date, location, attendance) VALUES (?,?,?)", (date, location, attendance))
-    conn.commit()
+    if data_counter == 25:
+        break
+    else:
+        year = key[0:4]
+        month = key[5:7]
+        day = key[8:10]
+        for index in range(0, len(city_list)):
+            if str(city_list[index]) == str(value[0]):
+                location = index
+                place = index
+        attendance = value[1]
+        attendance_list.append(attendance)
+        if cur.execute("SELECT * FROM Games WHERE year=? AND month=? AND day=? AND location=? AND attendance=?", (year, month, day, location, attendance)).fetchall():
+            continue
+        else:
+            cur.execute("INSERT OR IGNORE INTO Games (year, month, day, location, attendance) VALUES (?,?,?,?,?)", (year, month, day, location, attendance))
+            cur.execute("INSERT OR IGNORE INTO Location (number, location) VALUES (?,?)", (place, str(city_list[place])))
+            conn.commit()
+            data_counter += 1
 
 startDate = datetime.strptime('8/18/2008', "%m/%d/%Y")
 endDate = datetime.strptime('9/26/2008', "%m/%d/%Y")
