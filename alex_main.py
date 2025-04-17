@@ -24,10 +24,12 @@ tuple_lst = []
 table = soup.find('table', class_='sortable wikitable sticky-header-multi static-row-numbers sort-under col1left col2center')
 table_body = table.find('tbody')
 cities_data = table_body.find_all('tr')
+state_lst = []
 for city_info in cities_data:
     box = city_info.find_all('td')
     city = None
     state = None
+    #popuatlion = None
     if len(box) != 0:
         city = box[0].getText().strip()
         pattern = r'\[+\w+\]'
@@ -35,7 +37,11 @@ for city_info in cities_data:
         #print(city)
         if city_line:
             city = city[:-3]
-        state = box[1].getText().strip()
+        state_pos = box[1].getText().strip()
+        if state_pos not in state_lst:
+            state_lst.append(state_pos)
+        position = state_lst.index(state_pos)
+        state = position
     coordinates = city_info.find_all('span', class_ = 'geo')
     if len(coordinates) != 0:
         #print(coordinates[0].getText())
@@ -46,15 +52,26 @@ for city_info in cities_data:
         loct_tup = (city, state, latitude, longitude)
         #print(loct_tup)
         tuple_lst.append(loct_tup)
-print(tuple_lst)
+#print(tuple_lst)
 
 #Database
-cur.execute(""" CREATE TABLE IF NOT EXISTS locations (city STRING, state STRING, longitude INTEGER, latitude INTEGER) """)
+cur.execute(""" CREATE TABLE IF NOT EXISTS locations (city STRING, state INTEGER, longitude INTEGER, latitude INTEGER, UNIQUE(city, state, longitude, latitude)) """)
 conn.commit()
+count = 0
 for tup in tuple_lst:
-    city = tup[0]
-    state = tup[1]
-    longitude = tup[2]
-    latitude = tup[3]
-    cur.execute("INSERT OR IGNORE INTO locations (city, state, longitude, latitude) VALUES (?,?,?,?)", (city, state, longitude, latitude))
-    conn.commit()
+    if count == 25:
+        print("Done with inputing data")
+        break
+    else:
+        city = tup[0]
+        state = tup[1]
+        longitude = tup[2]
+        latitude = tup[3]
+        #population = tup[4]
+        if cur.execute("SELECT * FROM locations WHERE city=? AND state=? AND longitude=? AND latitude=?", (city, state, longitude, latitude)).fetchall():
+            continue
+        else:
+            cur.execute("INSERT OR IGNORE INTO locations (city, state, longitude, latitude) VALUES (?,?,?,?)", (city, state, longitude, latitude))
+            conn.commit()
+            count += 1
+            print("inputing data")
