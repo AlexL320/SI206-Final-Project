@@ -97,5 +97,5 @@ print(day_list)
 print(len(day_list))
 print(len(attendance_list))
 
-fig, ax = plt.subplots()
+fig, ax = plt.plot()
 #ax.plot(day_list, attendance_list, 'b-', label="attendance")
