@@ -9,7 +9,7 @@ path = os.path.dirname(os.path.abspath(__file__))
 conn = sqlite3.connect(path + "/" + "locations.db")
 cur = conn.cursor()
 
-#url to the wikipedia page
+#Url to the wikipedia page
 url = "https://en.wikipedia.org/wiki/List_of_United_States_cities_by_population"
 
 response = requests.get(url)
@@ -49,12 +49,12 @@ for city_info in cities_data:
 print(tuple_lst)
 
 #Database
-#cur.execute(""" CREATE TABLE IF NOT EXISTS locations (city STRING, state STRING, longitude INTEGER, latitude INTEGER) """)
-#conn.commit()
+cur.execute(""" CREATE TABLE IF NOT EXISTS locations (city STRING, state STRING, longitude INTEGER, latitude INTEGER) """)
+conn.commit()
 for tup in tuple_lst:
     city = tup[0]
     state = tup[1]
     longitude = tup[2]
     latitude = tup[3]
-    #cur.execute("INSERT OR IGNORE INTO locations (city, state, longitude, latitude) VALUES (?,?,?,?)", (city, state, longitude, latitude))
-    #conn.commit()
+    cur.execute("INSERT OR IGNORE INTO locations (city, state, longitude, latitude) VALUES (?,?,?,?)", (city, state, longitude, latitude))
+    conn.commit()
