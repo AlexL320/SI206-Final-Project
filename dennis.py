@@ -6,6 +6,7 @@ from datetime import datetime
 import math
 import matplotlib.pyplot as plt
 from bs4 import BeautifulSoup
+import numpy as np 
 
 
 # Creates the databse
@@ -93,7 +94,7 @@ conn.commit()
 
 attendance_list = []
 data_counter = 0
-place = 0
+index_counter = 0
 maximum = 0
 for key,value in data_dict.items():
     #print(key, value)
@@ -105,32 +106,84 @@ for key,value in data_dict.items():
         day = key[8:10]
         for index in range(0, len(city_list)):
             if str(city_list[index]) == str(value[0]):
+                #print(str(city_list[index]))
+                #print(str(value[0]))
                 for k,y in stadium_dict.items():
                     if str(k) == str(city_list[index][0]):
                         maximum = y
                 location = index
-                place = index
         attendance = value[1]
         attendance_list.append(attendance)
         if cur.execute("SELECT * FROM Games WHERE year=? AND month=? AND day=? AND location=? AND attendance=? AND capacity=?", (year, month, day, location, attendance, maximum)).fetchall():
             continue
         else:
             cur.execute("INSERT OR IGNORE INTO Games (year, month, day, location, attendance, capacity) VALUES (?,?,?,?,?,?)", (year, month, day, location, attendance, maximum))
-            cur.execute("INSERT OR IGNORE INTO Location (number, location) VALUES (?,?)", (place, str(city_list[place])))
+            cur.execute("INSERT OR IGNORE INTO Location (number, location) VALUES (?,?)", (location, str(city_list[location])))
             conn.commit()
             data_counter += 1
 
 startDate = datetime.strptime('8/18/2008', "%m/%d/%Y")
 endDate = datetime.strptime('9/26/2008', "%m/%d/%Y")
 
-delta = endDate - startDate
+""" delta = endDate - startDate
 #print(delta.days) 
 day_list = []
 for i in range(1, math.ceil(delta.days) + 1):
-    day_list.append(f"Day {i}")
+    day_list.append(f"Day {i}") """
+    
 #print(day_list)
 #print(len(day_list))
 #print(len(attendance_list))
 
-#fig, ax = plt.plot()
-#ax.plot(day_list, attendance_list, 'b-', label="attendance")
+
+# Creates the dicitonaries that will be used for the bar graph
+game_attendance_dict = {}
+average_dict= {}
+game_key = ""
+for key,values in stadium_dict.items():
+    #print(key)
+    percent_list = []
+    day_counter = 0
+    total_percent = 0.0
+    for index,items in data_dict.items():
+        #print(items[0][0])
+        #print(index)
+        if key == items[0][0]:
+            game_key = items[0]
+            #print("match")
+            #print(items[1])
+            #print(values)
+            percentage = items[1] / values
+            percentage = int(percentage * 10000) / 10000
+            day_percent = (index, percentage)
+            percent_list.append(day_percent)
+            #print(percent_list)
+            day_counter += 1
+            total_percent += percentage
+    game_attendance_dict[game_key] = percent_list
+    if day_counter > 0:
+        average_dict[game_key] = round(((int((total_percent / int(day_counter)) * 10000) / 10000) * 100), 2)
+
+#print(game_attendance_dict)
+#print(average_dict)
+
+# Creates the list that will be used to label to graph
+graph_x = []
+graph_y = []
+for key, value in average_dict.items():
+    graph_x.append(str(key[0] + ", " + key[1]))
+    graph_y.append(float(value))
+print(graph_x)
+print(graph_y)
+
+# Plots the attendance as a bar graph
+plt.barh(graph_x, graph_y)
+plt.title("Average attendance percentage for each NFL stadium")
+plt.xlabel("Stadium City Location")
+plt.ylabel("Percentage")
+
+# Adds the percentage to the end of each bar in the bar graph
+for index in range(len(graph_x)):
+    plt.text(graph_y[index], graph_x[index], str(graph_y[index]), va="center")
+
+plt.show()
