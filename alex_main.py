@@ -31,7 +31,7 @@ for city_info in cities_data:
     box = city_info.find_all('td')
     city = None
     state = None
-    #popuatlion = None
+    population = None
     #gets the city data if the row is not empty
     if len(box) != 0:
         #city data
@@ -47,6 +47,7 @@ for city_info in cities_data:
             state_lst.append(state_pos)
         position = state_lst.index(state_pos)
         state = position
+        population = box[2].getText().strip()
     #find the latitude and longitude of the city
     coordinates = city_info.find_all('span', class_ = 'geo')
     if len(coordinates) != 0:
@@ -55,14 +56,14 @@ for city_info in cities_data:
         latitude = cor[0].strip()
         longitude = cor[1].strip()
         #Create the tuple
-        loct_tup = (city, state, latitude, longitude)
+        loct_tup = (city, state, latitude, longitude, population)
         #print(loct_tup)
         tuple_lst.append(loct_tup)
-#print(tuple_lst)
+print(tuple_lst)
 
 #Database
 #creates the database
-cur.execute(""" CREATE TABLE IF NOT EXISTS locations (city STRING, state INTEGER, longitude INTEGER, latitude INTEGER, UNIQUE(city, state, longitude, latitude)) """)
+cur.execute(""" CREATE TABLE IF NOT EXISTS locations (city STRING, state INTEGER, longitude INTEGER, latitude INTEGER, population INTEGER, UNIQUE(city, state, longitude, latitude, population)) """)
 conn.commit()
 count = 0
 #puts in 25 rows of data into the data base
@@ -76,13 +77,14 @@ for tup in tuple_lst:
         state = tup[1]
         longitude = tup[2]
         latitude = tup[3]
+        population = tup[4]
         #population = tup[4]
         #adds the rows already in the database when running the code
-        if cur.execute("SELECT * FROM locations WHERE city=? AND state=? AND longitude=? AND latitude=?", (city, state, longitude, latitude)).fetchall():
+        if cur.execute("SELECT * FROM locations WHERE city=? AND state=? AND longitude=? AND latitude=? AND population=?", (city, state, longitude, latitude, population)).fetchall():
             continue
         #adds new rows of data into the database
         else:
-            cur.execute("INSERT OR IGNORE INTO locations (city, state, longitude, latitude) VALUES (?,?,?,?)", (city, state, longitude, latitude))
+            cur.execute("INSERT OR IGNORE INTO locations (city, state, longitude, latitude, population) VALUES (?,?,?,?,?)", (city, state, longitude, latitude, population))
             conn.commit()
             count += 1
             print("inputing data")
