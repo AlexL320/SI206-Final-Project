@@ -4,12 +4,6 @@ import re
 import sqlite3
 import os
 import matplotlib.pyplot as plt
-from dennis import average_dict
-
-import_dict = average_dict
-#print("Imported list")
-#print(import_dict)
-
 
 #Creates the database
 path = os.path.dirname(os.path.abspath(__file__))
@@ -27,15 +21,15 @@ else:
 soup = BeautifulSoup(html,'html.parser')
 
 
-#Gets the data
-tuple_lst = []
-#finds the table
-table = soup.find('table', class_='sortable wikitable sticky-header-multi static-row-numbers sort-under col1left col2center')
-table_body = table.find('tbody')
-cities_data = table_body.find_all('tr')
-state_lst = []
+
 #goes through the body to find the city's name and state
-def get_data():
+def get_wiki_data():
+    tuple_lst = []
+    #finds the table
+    table = soup.find('table', class_='sortable wikitable sticky-header-multi static-row-numbers sort-under col1left col2center')
+    table_body = table.find('tbody')
+    cities_data = table_body.find_all('tr')
+    state_lst = []
     for city_info in cities_data:
         box = city_info.find_all('td')
         city = None
@@ -67,9 +61,9 @@ def get_data():
             #print(loct_tup)
             tuple_lst.append(loct_tup)
     #print(tuple_lst)
-    return tuple_lst
+    return [tuple_lst, state_lst]
 
-def create_location_database():
+def create_location_database(tuple_lst, state_lst):
     #Database
     #creates the database
     cur.execute(""" CREATE TABLE IF NOT EXISTS locations (city STRING, state INTEGER, longitude INTEGER, latitude INTEGER, population INTEGER, UNIQUE(city, state, longitude, latitude, population)) """)
@@ -99,7 +93,7 @@ def create_location_database():
                 count += 1
                 print("inputing data")
 
-def create_scatter_graph():
+def create_scatter_graph(tuple_lst, import_dict):
     #visualization
     graph_x = []
     graph_y = []
@@ -112,8 +106,8 @@ def create_scatter_graph():
                 graph_y = [tup[4]] + graph_y
                 labels = [temp_tup] + labels
     for i, label in enumerate(labels):
-        plt.annotate(label, (graph_x[i], graph_y[i]), textcoords="offset points", xytext=(0,5), ha='center')
-    plt.xlabel("percentage")
-    plt.ylabel("population")
+        plt.annotate(label, (graph_x[i], graph_y[i]), textcoords="offset points", xytext=(5,5), ha='center')
+    plt.xlabel("percentage of stadium filled")
+    plt.ylabel("population of city")
     plt.scatter(graph_x, graph_y)
     plt.show()
