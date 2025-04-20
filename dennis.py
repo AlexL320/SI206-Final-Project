@@ -54,8 +54,9 @@ def get_game_data():
                 # Adds the location to city_list. Does skip over duplicates
                 if loc_tuple not in city_list:
                     city_list.append(loc_tuple)
-    #print(data_dict) 
-    return [data_dict, city_list]
+    #print(data_dict)
+    tuple_data = (data_dict, city_list) 
+    return tuple_data
     
 def get_max_capacity(city_list):
     # Pulls the data from the page of the max capacity of all NFL game stadiums
@@ -212,8 +213,8 @@ def create_graph(data_dict, stadium_dict):
     for key, value in average_dict.items():
         graph_x.append(str(key[0] + ", " + key[1]))
         graph_y.append(float(value))
-    print(graph_x)
-    print(graph_y)
+    #print(graph_x)
+    #print(graph_y)
 
     # Plots the attendance as a bar graph
     plt.barh(graph_x, graph_y)
