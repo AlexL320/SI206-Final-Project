@@ -10,25 +10,37 @@ path = os.path.dirname(os.path.abspath(__file__))
 conn = sqlite3.connect(path + "/" + "Weather.db")
 cur = conn.cursor()
 
-#create the database
-cur.execute(""" CREATE TABLE IF NOT EXISTS Weather (
-            game_date TEXT, 
-            location TEXT, 
-            max_temp REAL, 
-            min_temp REAL, 
-            precipitation REAL, 
-            wind_speed REAL, 
-            humidity REAL, 
-            uv_index INTEGER, 
-            conditions TEXT,
-            UNIQUE(game_date, location)
-            ) 
-            """)
+# Create the Cities table to store unique cities and their integer IDs
+cur.execute("""
+    CREATE TABLE IF NOT EXISTS Cities (
+        city_id INTEGER PRIMARY KEY,
+        city_name TEXT UNIQUE
+    )
+""")
 conn.commit()
-#api key
+
+# Create the Weather table with city_id column
+cur.execute("""
+    CREATE TABLE IF NOT EXISTS Weather (
+        game_date TEXT, 
+        city_id INTEGER, 
+        max_temp REAL, 
+        min_temp REAL, 
+        precipitation REAL, 
+        wind_speed REAL, 
+        humidity REAL, 
+        uv_index INTEGER, 
+        conditions TEXT,
+        FOREIGN KEY (city_id) REFERENCES Cities (city_id),
+        UNIQUE(game_date, city_id)
+    )
+""")
+conn.commit()
+
+# API key
 api_key = 'N9DKDVJTSMT2WMRKEJBM7ZQ83'
 
-#dictionary of NFL games
+# Dictionary of NFL games
 games = [
    ('2023-09-08', 'Kansas City'),
    ('2023-09-10', 'Baltimore'),
@@ -132,45 +144,60 @@ games = [
    ('2023-12-17', 'Orchard Park')
 ]
 
-#what weather elements are being collected
+# Weather elements being collected
 weather_elements = "datetime,tempmax,tempmin,humidity,precip,preciptype,windspeedmax,windspeedmin,uvindex,description"
 
 # Set the maximum number of entries to fetch
 max_entries = 25
 counter = 0
 
-#creating the csv file for the weather for each game
+# Create a list of cities that will be assigned sequential IDs starting from 0
+city_list = [game[1] for game in games]  # Extract city names from games
+
+# Remove duplicates to avoid inserting the same city multiple times
+city_list = list(set(city_list))
+
+# Insert cities into the Cities table with a sequential ID starting from 0
+for city in city_list:
+    cur.execute("INSERT OR IGNORE INTO Cities (city_name) VALUES (?)", (city,))
+conn.commit()
+
+# Create the CSV file for weather data
 with open('nfl_weather_data.csv', 'w', newline='', encoding='utf-8') as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow(['Game Date', 'Location', 'Max Temperature (F)', 'Min Temperature (F)', 'Precipitation (inches)', 'Wind Speed (mph)', 'Humidity (%)', 'UV Index', 'Conditions'])
 
-    # If the counter reaches the limit, break the loop
+    # Process each game and insert weather data
     for game in games:
         if counter >= max_entries:
             break
         game_date, location = game
         formatted_date = datetime.strptime(game_date, '%Y-%m-%d').date()
-        cur.execute("SELECT * FROM Weather WHERE game_date = ? AND location = ?", (formatted_date.strftime('%Y-%m-%d'), location))
-        existing_data = cur.fetchone()  
-        
-        # Skip this game if it already exists
+
+        # Get the city_id for the current location
+        cur.execute("SELECT city_id FROM Cities WHERE city_name = ?", (location,))
+        city_id = cur.fetchone()[0]
+
+        # Check if this game already exists in the Weather table
+        cur.execute("SELECT * FROM Weather WHERE game_date = ? AND city_id = ?", (formatted_date.strftime('%Y-%m-%d'), city_id))
+        existing_data = cur.fetchone()
+
         if existing_data:
             continue
 
+        # Fetch weather data
         url = f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{location}/{formatted_date}/{formatted_date}?unitGroup=us&elements={weather_elements}&key={api_key}&contentType=csv&include=days"
         response = requests.get(url)
 
-        # Check if the response is successful and add data to the database
         if response.status_code == 200:
             print(f"Success: Data for {location} on {formatted_date} fetched successfully.")
             csv_data = response.text.splitlines()
             for row in csv_data[1:]:
                 data = row.split(',')
-                writer.writerow([formatted_date, location] + data[1:])  
-
+                writer.writerow([formatted_date, location] + data[1:])
                 cur.execute("""INSERT OR IGNORE INTO Weather (
                             game_date, 
-                            location, 
+                            city_id, 
                             max_temp, 
                             min_temp, 
                             precipitation, 
@@ -178,14 +205,13 @@ with open('nfl_weather_data.csv', 'w', newline='', encoding='utf-8') as csvfile:
                             humidity, 
                             uv_index, 
                             conditions
-                            ) VALUES (?,?,?,?,?,?,?,?,?
-                            )""", 
-                           (formatted_date, location, data[1], data[2], data[4], data[6], data[3], data[8], data[9]))
+                            ) VALUES (?,?,?,?,?,?,?,?,?)""", 
+                           (formatted_date, city_id, data[1], data[2], data[4], data[6], data[3], data[8], data[9]))
                 conn.commit()
                 counter += 1
 
-        # If the response fails, print an error message
         else:
             print(f"Error fetching data for {location} on {formatted_date}: {response.status_code}")
             print(f"Error response text: {response.text}")
+
 print("Weather data for NFL games has been saved to nfl_weather_data.csv.")
