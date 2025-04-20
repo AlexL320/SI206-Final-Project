@@ -166,7 +166,7 @@ def create_database(data_dict, city_list, stadium_dict):
 def create_graph(data_dict, stadium_dict):
     # Creates the dicitonaries that will be used for the bar graph
     game_attendance_dict = {}
-    average_dict= {}
+    average_dict = {}
     game_key = ""
     # Loops throught stadium_dict
     for key,values in stadium_dict.items():
@@ -228,3 +228,5 @@ def create_graph(data_dict, stadium_dict):
         plt.text(graph_y[index], graph_x[index], str(graph_y[index]), va="center")
 
     plt.show()
+    
+    return average_dict
