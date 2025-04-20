@@ -1,9 +1,34 @@
 import requests
 import csv
 from datetime import datetime
+import os
+import sqlite3
+import matplotlib.pyplot as plt
 
+# Path to the database
+path = os.path.dirname(os.path.abspath(__file__))
+conn = sqlite3.connect(path + "/" + "Weather.db")
+cur = conn.cursor()
+
+#create the database
+cur.execute(""" CREATE TABLE IF NOT EXISTS Weather (
+            game_date TEXT, 
+            location TEXT, 
+            max_temp REAL, 
+            min_temp REAL, 
+            precipitation REAL, 
+            wind_speed REAL, 
+            humidity REAL, 
+            uv_index INTEGER, 
+            conditions TEXT,
+            UNIQUE(game_date, location)
+            ) 
+            """)
+conn.commit()
+#api key
 api_key = 'N9DKDVJTSMT2WMRKEJBM7ZQ83'
 
+#dictionary of NFL games
 games = [
    ('2023-09-08', 'Kansas City'),
    ('2023-09-10', 'Baltimore'),
@@ -107,24 +132,59 @@ games = [
    ('2023-12-17', 'Orchard Park')
 ]
 
+#what weather elements are being collected
 weather_elements = "datetime,tempmax,tempmin,humidity,precip,preciptype,windspeedmax,windspeedmin,uvindex,description"
 
+# Set the maximum number of entries to fetch
+max_entries = 25
+counter = 0
+
+#creating the csv file for the weather for each game
 with open('nfl_weather_data.csv', 'w', newline='', encoding='utf-8') as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow(['Game Date', 'Location', 'Max Temperature (F)', 'Min Temperature (F)', 'Precipitation (inches)', 'Wind Speed (mph)', 'Humidity (%)', 'UV Index', 'Conditions'])
 
+    # If the counter reaches the limit, break the loop
     for game in games:
+        if counter >= max_entries:
+            break
         game_date, location = game
         formatted_date = datetime.strptime(game_date, '%Y-%m-%d').date()
+        cur.execute("SELECT * FROM Weather WHERE game_date = ? AND location = ?", (formatted_date.strftime('%Y-%m-%d'), location))
+        existing_data = cur.fetchone()  
+        
+        # Skip this game if it already exists
+        if existing_data:
+            continue
+
         url = f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{location}/{formatted_date}/{formatted_date}?unitGroup=us&elements={weather_elements}&key={api_key}&contentType=csv&include=days"
         response = requests.get(url)
 
+        # Check if the response is successful and add data to the database
         if response.status_code == 200:
             print(f"Success: Data for {location} on {formatted_date} fetched successfully.")
             csv_data = response.text.splitlines()
             for row in csv_data[1:]:
                 data = row.split(',')
                 writer.writerow([formatted_date, location] + data[1:])  
+
+                cur.execute("""INSERT OR IGNORE INTO Weather (
+                            game_date, 
+                            location, 
+                            max_temp, 
+                            min_temp, 
+                            precipitation, 
+                            wind_speed, 
+                            humidity, 
+                            uv_index, 
+                            conditions
+                            ) VALUES (?,?,?,?,?,?,?,?,?
+                            )""", 
+                           (formatted_date, location, data[1], data[2], data[4], data[6], data[3], data[8], data[9]))
+                conn.commit()
+                counter += 1
+
+        # If the response fails, print an error message
         else:
             print(f"Error fetching data for {location} on {formatted_date}: {response.status_code}")
             print(f"Error response text: {response.text}")
