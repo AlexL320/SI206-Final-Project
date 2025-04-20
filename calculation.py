@@ -1,6 +1,6 @@
 from dennis import *
 
-data_list = []
+data_list = ()
 data_list = get_game_data()
 #print(data_dict)
 
