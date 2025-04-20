@@ -10,30 +10,32 @@ import_dict = average_dict
 #print("Imported list")
 #print(import_dict)
 
-def create_location_database():
-    #Creates the database
-    path = os.path.dirname(os.path.abspath(__file__))
-    conn = sqlite3.connect(path + "/" + "locations.db")
-    cur = conn.cursor()
 
-    #Url to the wikipedia page
-    url = "https://en.wikipedia.org/wiki/List_of_United_States_cities_by_population"
-    #goes to the website
-    response = requests.get(url)
-    if response.status_code == 200:
-            html = response.text
-    else:
-        print("Fail to retrieve the web page.")
-    soup = BeautifulSoup(html,'html.parser')
+#Creates the database
+path = os.path.dirname(os.path.abspath(__file__))
+conn = sqlite3.connect(path + "/" + "locations.db")
+cur = conn.cursor()
 
-    #Gets the data
-    tuple_lst = []
-    #finds the table
-    table = soup.find('table', class_='sortable wikitable sticky-header-multi static-row-numbers sort-under col1left col2center')
-    table_body = table.find('tbody')
-    cities_data = table_body.find_all('tr')
-    state_lst = []
-    #goes through the body to find the city's name and state
+#Url to the wikipedia page
+url = "https://en.wikipedia.org/wiki/List_of_United_States_cities_by_population"
+#goes to the website
+response = requests.get(url)
+if response.status_code == 200:
+        html = response.text
+else:
+    print("Fail to retrieve the web page.")
+soup = BeautifulSoup(html,'html.parser')
+
+
+#Gets the data
+tuple_lst = []
+#finds the table
+table = soup.find('table', class_='sortable wikitable sticky-header-multi static-row-numbers sort-under col1left col2center')
+table_body = table.find('tbody')
+cities_data = table_body.find_all('tr')
+state_lst = []
+#goes through the body to find the city's name and state
+def get_data():
     for city_info in cities_data:
         box = city_info.find_all('td')
         city = None
@@ -49,13 +51,6 @@ def create_location_database():
             if city_line:
                 city = city[:-3]
             state = box[1].getText().strip()
-            '''
-            #puts the data in the list and assigns a number to it based on its position in the list
-            if state_pos not in state_lst:
-                state_lst.append(state_pos)
-            position = state_lst.index(state_pos)
-            state = position
-            '''
             if state not in state_lst:
                 state_lst.append(state)
             population = box[2].getText().strip()
@@ -72,7 +67,9 @@ def create_location_database():
             #print(loct_tup)
             tuple_lst.append(loct_tup)
     #print(tuple_lst)
-    
+    return tuple_lst
+
+def create_location_database():
     #Database
     #creates the database
     cur.execute(""" CREATE TABLE IF NOT EXISTS locations (city STRING, state INTEGER, longitude INTEGER, latitude INTEGER, population INTEGER, UNIQUE(city, state, longitude, latitude, population)) """)
