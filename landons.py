@@ -215,3 +215,38 @@ with open('nfl_weather_data.csv', 'w', newline='', encoding='utf-8') as csvfile:
             print(f"Error response text: {response.text}")
 
 print("Weather data for NFL games has been saved to nfl_weather_data.csv.")
+
+# Pie chart for weather conditions
+cur.execute("SELECT conditions FROM Weather")
+conditions_data = cur.fetchall()
+conditions_list = [condition[0] for condition in conditions_data]
+
+# Define categories for weather conditions
+def categorize_condition(condition):
+    if "rain" in condition.lower():
+        return "Rain"
+    elif "clear" in condition.lower():
+        return "Clear"
+    elif "cloudy" in condition.lower():
+        return "Cloudy"
+    elif "snow" in condition.lower():
+        return "Snow"
+    else:
+        return "Other"
+
+grouped_conditions = [categorize_condition(condition) for condition in conditions_list]
+condition_counts = {}
+for condition in grouped_conditions:
+    if condition in condition_counts:
+        condition_counts[condition] += 1
+    else:
+        condition_counts[condition] = 1
+
+labels = list(condition_counts.keys())
+sizes = list(condition_counts.values())
+
+plt.figure(figsize=(8, 8))
+plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=plt.cm.Paired.colors)
+plt.title('Percentage of Games with Different Weather Conditions', fontsize=16)
+plt.axis('equal')  
+plt.show()
