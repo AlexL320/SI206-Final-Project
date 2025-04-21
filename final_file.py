@@ -69,6 +69,12 @@ def get_wiki_data():
         print("Fail to retrieve the web page.")
     soup = BeautifulSoup(html,'html.parser')
     
+    #Gets the last city
+    end_url = "https://en.wikipedia.org/wiki/East_Rutherford,_New_Jersey"
+    end_resp = requests.get(end_url)
+    end_html = end_resp.text
+    end_soup = BeautifulSoup(end_html,'html.parser')
+    
     tuple_lst = []
     #finds the table
     table = soup.find('table', class_='sortable wikitable sticky-header-multi static-row-numbers sort-under col1left col2center')
@@ -111,6 +117,29 @@ def get_wiki_data():
             #print(loct_tup)
             tuple_lst.append(loct_tup)
     #print(tuple_lst)
+    end_location = None
+    end_loca = end_soup.find('span', "mw-page-title-main")
+    end_location = end_loca.getText()
+    end_loca_lst = end_location.split(',')
+    end_city = end_loca_lst[0]
+    end_state = end_loca_lst[0]
+    
+    end_population = None
+    end_table = end_soup.find('table', class_ = "infobox ib-settlement vcard")
+    end_pop = end_table.find_all('td', class_ = "infobox-data")
+    for end in end_pop:
+        if(end.getText() == "10,421"):
+            end_population = end.getText()
+    
+    end_coords = end_soup.find('span', class_ = "geo-dec")
+    end_coords_lst= end_coords.getText()
+    end_coordinates = end_coords_lst.split(' ')
+    end_lat = end_coordinates[0][0:5]
+    end_long = end_coordinates[1][0:5]
+    end_long = "-" + end_long
+    end_tup = (end_city, end_state, end_population, end_lat, end_long)
+    tuple_lst.append(end_tup)
+    
     return [tuple_lst, state_lst, cord_dict]
   
 def get_max_capacity(city_dict):
