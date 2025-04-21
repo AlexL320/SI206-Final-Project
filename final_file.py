@@ -375,8 +375,8 @@ def create_graph(data_dict, stadium_dict):
     plt.barh(graph_x, graph_y)
     # Adds the title and labels to the bar graph
     plt.title("Average attendance percentage for each NFL stadium")
-    plt.xlabel("Stadium City Location")
-    plt.ylabel("Percentage")
+    plt.ylabel("Stadium City Location")
+    plt.xlabel("Percentage")
 
     # Adds the percentage to the end of each bar in the bar graph
     for index in range(len(graph_x)):
@@ -400,7 +400,8 @@ def create_scatter_graph(tuple_lst, import_dict):
                 labels = [temp_tup] + labels
     for i, label in enumerate(labels):
         plt.annotate(label, (graph_x[i], graph_y[i]), textcoords="offset points", xytext=(5,5), ha='center')
-    plt.xlabel("percentage of stadium filled")
-    plt.ylabel("population of city")
+    plt.title("Average attendance percentage for each NFL stadium")
+    plt.xlabel("Percentage of stadium filled")
+    plt.ylabel("Population of city")
     plt.scatter(graph_x, graph_y)
     plt.show()
