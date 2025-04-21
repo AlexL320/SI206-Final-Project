@@ -62,7 +62,6 @@ def get_wiki_data():
     #Url to the wikipedia page
     url = "https://en.wikipedia.org/wiki/List_of_United_States_cities_by_population"
     #goes to the website
-    cord_dict = {}
     response = requests.get(url)
     if response.status_code == 200:
             html = response.text
@@ -76,6 +75,8 @@ def get_wiki_data():
     table_body = table.find('tbody')
     cities_data = table_body.find_all('tr')
     state_lst = []
+    cord_dict = {}
+    index = 1
     for city_info in cities_data:
         box = city_info.find_all('td')
         city = None
@@ -105,8 +106,8 @@ def get_wiki_data():
             #Create the tuple
             loct_tup = (city, state, latitude, longitude, population)
             my_tup = (city, state)
-            index = state_lst.index(state)
             cord_dict[my_tup] = index
+            index += 1
             #print(loct_tup)
             tuple_lst.append(loct_tup)
     #print(tuple_lst)
@@ -202,7 +203,11 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
             # Loops throught city_dict
             for index, answer in city_dict.items():
                 # Checks if the current city name within data_dict matches the current city name within city_dict
-                if str(index[0]) == str(value[0][0]):
+                index_str = index[0] + index[1][0:1]
+                value_str = value[0][0] + value[0][1][0:1]
+                #print(value)
+                if index_str == value_str:
+                    print(index, answer)
                     #print(str(index[0]))
                     #print(str(value[0]))
                     # Loops throught stadium_dict
@@ -211,6 +216,7 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
                         if str(k) == str(index[0]):
                             maximum = y
                     # Assigns a location index to the city
+                    #print(index, answer)
                     location = int(answer)
                     key = index
             
@@ -240,11 +246,10 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
                 conn.commit()
                 data_counter += 1
                 
-    count = 0
     #puts in 25 rows of data into the data base
     for tup in tuple_lst:
         #stops after 25 rows of data are put into the data base
-        if count == 25:
+        if data_counter == 25:
             #print("Done with inputing data")
             break
         else:
@@ -254,7 +259,6 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
             longitude = tup[2]
             latitude = tup[3]
             population = tup[4]
-            #population = tup[4]
             #adds the rows already in the database when running the code
             if cur.execute("SELECT * FROM Coordinates WHERE city=? AND state=? AND longitude=? AND latitude=? AND population=?", (city, state_index, longitude, latitude, population)).fetchall():
                 continue
@@ -263,7 +267,7 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
                 cur.execute("INSERT OR IGNORE INTO Coordinates (city, state, longitude, latitude, population) VALUES (?,?,?,?,?)", (city, state_index, longitude, latitude, population))
                 cur.execute("INSERT OR IGNORE INTO Coord_Guide (Id, state) VALUES (?, ?)", (state_index, state))
                 conn.commit()
-                count += 1
+                data_counter += 1
                 #print("inputing data")
                 
     # Joins the "Games" table and ""

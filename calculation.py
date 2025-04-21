@@ -2,7 +2,7 @@ from final_file import *
 
 data_list = ()
 data_list = get_game_data()
-#print(data_dict)
+#print(data_list)
 
 wiki_data = get_wiki_data()[0]
 state_list = get_wiki_data()[1]
