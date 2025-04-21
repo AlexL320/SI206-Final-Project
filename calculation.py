@@ -10,7 +10,7 @@ city_dict = get_wiki_data()[2]
 
 max_capacity = get_max_capacity(city_dict)
 
-create_database(data_list[0], city_dict, max_capacity, wiki_data, state_list)
+#create_database(data_list[0], city_dict, max_capacity, wiki_data, state_list)
 print(create_database(data_list[0], city_dict, max_capacity, wiki_data, state_list))
 
 im_dict = create_graph(data_list[0], max_capacity)
