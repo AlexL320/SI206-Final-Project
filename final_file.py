@@ -169,15 +169,12 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
     
     # Creates the database for the city list
     cur.execute(""" CREATE TABLE IF NOT EXISTS Location (number INTEGER, location Text, UNIQUE (number, location)) """)
-    conn.commit()
 
     # Creates the databsse and adds the header
     cur.execute(""" CREATE TABLE IF NOT EXISTS Games (year INTEGER, month INTEGER, day INTEGER, location INTEGER, attendance INTEGER, capacity INTEGER, UNIQUE (year, month, day, location, attendance, capacity)) """)
-    conn.commit()
     
     #creates the coordinate database
     cur.execute(""" CREATE TABLE IF NOT EXISTS Coordinates (city STRING, state INTEGER, longitude INTEGER, latitude INTEGER, population INTEGER, UNIQUE(city, state, longitude, latitude, population)) """)
-    conn.commit()
     
     cur.execute(""" CREATE TABLE IF NOT EXISTS Coord_Guide (Id INTEGER, state STRING, UNIQUE(Id, state)) """)
     conn.commit()
@@ -188,7 +185,7 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
     maximum = 0
 
     # Loops throught data_dict to begin adding it to the database
-    for key,value in data_dict.items():
+    for (key,value), (tup) in zip(data_dict.items(), tuple_lst):
         #print(key, value)
         # Checks if 25 rows of data have been added and breaks if it is true
         if data_counter == 25:
@@ -242,7 +239,23 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
                 conn.commit()
                 data_counter += 1
                 
-    #puts in 25 rows of data into the data base
+                city = tup[0]
+                state = tup[1]
+                state_index = state_lst.index(state)
+                longitude = tup[2]
+                latitude = tup[3]
+                population = tup[4]
+                #adds the rows already in the database when running the code
+                if cur.execute("SELECT * FROM Coordinates WHERE city=? AND state=? AND longitude=? AND latitude=? AND population=?", (city, state_index, longitude, latitude, population)).fetchall():
+                    continue
+                #adds new rows of data into the database
+                else:
+                    cur.execute("INSERT OR IGNORE INTO Coordinates (city, state, longitude, latitude, population) VALUES (?,?,?,?,?)", (city, state_index, longitude, latitude, population))
+                    cur.execute("INSERT OR IGNORE INTO Coord_Guide (Id, state) VALUES (?, ?)", (state_index, state))
+                    conn.commit()
+                    #print("inputing data")
+                
+"""     #puts in 25 rows of data into the data base
     for tup in tuple_lst:
         #stops after 25 rows of data are put into the data base
         if data_counter == 25:
@@ -267,7 +280,7 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
                 #print("inputing data")
                 
     # Joins the "Games" table and ""
-    #cur.execute("SELECT Games.")
+    #cur.execute("SELECT Games.") """
                  
 
 
