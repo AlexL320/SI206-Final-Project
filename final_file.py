@@ -207,16 +207,12 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
                 value_str = value[0][0] + value[0][1][0:1]
                 #print(value)
                 if index_str == value_str:
-                    print(index, answer)
-                    #print(str(index[0]))
-                    #print(str(value[0]))
                     # Loops throught stadium_dict
                     for k,y in stadium_dict.items():
                         # Checks if the city name city name match and set the maximum to y
                         if str(k) == str(index[0]):
                             maximum = y
                     # Assigns a location index to the city
-                    #print(index, answer)
                     location = int(answer)
                     key = index
             
@@ -242,7 +238,7 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
             # Adds the row to the database
             else:
                 cur.execute("INSERT OR IGNORE INTO Games (year, month, day, location, attendance, capacity) VALUES (?,?,?,?,?,?)", (year, month, day, location, attendance, maximum))
-                cur.execute("INSERT OR IGNORE INTO Location (number, location) VALUES (?,?)", (location, str(city_dict[index])))
+                cur.execute("INSERT OR IGNORE INTO Location (number, location) VALUES (?,?)", (location, str(key)))
                 conn.commit()
                 data_counter += 1
                 
