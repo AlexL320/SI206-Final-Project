@@ -201,7 +201,7 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
     cur = conn.cursor()
     
     # Creates the database for the city list
-    cur.execute(""" CREATE TABLE IF NOT EXISTS Location (number INTEGER, location Text, longitude INTEGER, latitude INTEGER, 
+    cur.execute(""" CREATE TABLE IF NOT EXISTS Location (number INTEGER, location Text, latitude INTEGER, longitude INTEGER, 
                 UNIQUE (number, location)) """)
 
     # Creates the databsse and adds the header
@@ -209,8 +209,8 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
                 UNIQUE (year, month, day, location, attendance, capacity)) """)
     
     #creates the coordinate database
-    cur.execute(""" CREATE TABLE IF NOT EXISTS Coordinates (city STRING, state INTEGER, longitude INTEGER, latitude INTEGER, population INTEGER, 
-                UNIQUE(city, state, longitude, latitude, population)) """)
+    cur.execute(""" CREATE TABLE IF NOT EXISTS Coordinates (city STRING, state INTEGER, latitude INTEGER, longitude INTEGER, population INTEGER, 
+                UNIQUE(city, state, latitude, longitude, population)) """)
     
     cur.execute(""" CREATE TABLE IF NOT EXISTS Coord_Guide (Id INTEGER, state STRING, UNIQUE(Id, state)) """)
     conn.commit()
@@ -280,17 +280,17 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
                 latitude = tup[3]
                 population = tup[4]
                 #adds the rows already in the database when running the code
-                if cur.execute("SELECT * FROM Coordinates WHERE city=? AND state=? AND longitude=? AND latitude=? AND population=?", (city, state_index, longitude, latitude, population)).fetchall():
+                if cur.execute("SELECT * FROM Coordinates WHERE city=? AND state=? AND longitude=? AND latitude=? AND population=?", (city, state_index, longitude, latitude, longitude)).fetchall():
                     continue
                 #adds new rows of data into the database
                 else:
-                    cur.execute("INSERT OR IGNORE INTO Coordinates (city, state, longitude, latitude, population) VALUES (?,?,?,?,?)", (city, state_index, longitude, latitude, population))
+                    cur.execute("INSERT OR IGNORE INTO Coordinates (city, state, longitude, latitude, population) VALUES (?,?,?,?,?)", (city, state_index, longitude, latitude, longitude))
                     cur.execute("INSERT OR IGNORE INTO Coord_Guide (Id, state) VALUES (?, ?)", (state_index, state))
                     conn.commit()
                     #print("inputing data")
                     
                 cur.execute("INSERT OR IGNORE INTO Games (year, month, day, location, attendance, capacity) VALUES (?,?,?,?,?,?)", (year, month, day, location, attendance, maximum))
-                cur.execute("INSERT OR IGNORE INTO Location (number, location, longitude, latitude) VALUES (?,?,?,?)", (location, str(key), longitude, latitude))
+                cur.execute("INSERT OR IGNORE INTO Location (number, location, latitude, longitude) VALUES (?,?,?,?)", (location, str(key), latitude, longitude))
                 conn.commit()
                 data_counter += 1
     cur.execute("""SELECT Games.location, Games.year, Games.month, Games.day, Games.attendance, Games.capacity, Location.longitude, Location.latitude 
@@ -427,6 +427,7 @@ def create_scatter_graph(tuple_lst, import_dict):
                 labels = [temp_tup] + labels
     for i, label in enumerate(labels):
         plt.annotate(label, (graph_x[i], graph_y[i]), textcoords="offset points", xytext=(5,5), ha='center')
+    plt.title("Average attendance percentage for each NFL stadium")
     plt.xlabel("percentage of stadium filled")
     plt.ylabel("population of city")
     plt.scatter(graph_x, graph_y)
