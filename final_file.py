@@ -116,13 +116,14 @@ def get_wiki_data():
             index += 1
             #print(loct_tup)
             tuple_lst.append(loct_tup)
-    #print(tuple_lst)
+
+    #adds the last city
     end_location = None
     end_loca = end_soup.find('span', "mw-page-title-main")
     end_location = end_loca.getText()
     end_loca_lst = end_location.split(',')
     end_city = end_loca_lst[0]
-    end_state = end_loca_lst[0]
+    end_state = end_loca_lst[1]
     
     end_population = None
     end_table = end_soup.find('table', class_ = "infobox ib-settlement vcard")
@@ -139,6 +140,10 @@ def get_wiki_data():
     end_long = "-" + end_long
     end_tup = (end_city, end_state, end_population, end_lat, end_long)
     tuple_lst.append(end_tup)
+    
+    #puts the location in the coordinate dictionary
+    end_loc_tup = (end_city, end_state)
+    cord_dict[end_loc_tup] = index
     
     return [tuple_lst, state_lst, cord_dict]
   
