@@ -1,18 +1,18 @@
-from dennis import *
-from alex_main import *
+from final_file import *
 
 data_list = ()
 data_list = get_game_data()
 #print(data_dict)
 
-max_capacity = get_max_capacity(data_list[1])
-#print(max_capacity)
+wiki_data = get_wiki_data()[0]
+state_list = get_wiki_data()[1]
+city_dict = get_wiki_data()[2]
 
-create_database(data_list[0], data_list[1], max_capacity)
+max_capacity = get_max_capacity(city_dict)
+
+create_database(data_list[0], city_dict, max_capacity, wiki_data, state_list)
+print(create_database(data_list[0], city_dict, max_capacity, wiki_data, state_list))
 
 im_dict = create_graph(data_list[0], max_capacity)
 
-wiki_data = get_wiki_data()[0]
-state_list = get_wiki_data()[1]
-create_location_database(wiki_data, state_list)
 create_scatter_graph(wiki_data, im_dict)

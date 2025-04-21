@@ -2,10 +2,11 @@ import requests
 import json
 import sqlite3
 import os
+import math
 import matplotlib.pyplot as plt
 from bs4 import BeautifulSoup
 import numpy as np 
-
+import re
 
 def get_game_data():
     # Gets the API data for every NFL games in the eyar 2023
@@ -55,8 +56,63 @@ def get_game_data():
     #print(data_dict)
     tuple_data = (data_dict, city_list) 
     return tuple_data
+
+#goes through the body to find the city's name and state
+def get_wiki_data():
+    #Url to the wikipedia page
+    url = "https://en.wikipedia.org/wiki/List_of_United_States_cities_by_population"
+    #goes to the website
+    cord_dict = {}
+    response = requests.get(url)
+    if response.status_code == 200:
+            html = response.text
+    else:
+        print("Fail to retrieve the web page.")
+    soup = BeautifulSoup(html,'html.parser')
     
-def get_max_capacity(city_list):
+    tuple_lst = []
+    #finds the table
+    table = soup.find('table', class_='sortable wikitable sticky-header-multi static-row-numbers sort-under col1left col2center')
+    table_body = table.find('tbody')
+    cities_data = table_body.find_all('tr')
+    state_lst = []
+    for city_info in cities_data:
+        box = city_info.find_all('td')
+        city = None
+        state = None
+        population = None
+        #gets the city data if the row is not empty
+        if len(box) != 0:
+            #city data
+            city = box[0].getText().strip()
+            pattern = r'\[+\w+\]'
+            city_line = re.findall(pattern, city)
+            #print(city)
+            if city_line:
+                city = city[:-3]
+            state = box[1].getText().strip()
+            if state not in state_lst:
+                state_lst.append(state)
+            population = box[2].getText().strip()
+
+        #find the latitude and longitude of the city
+        coordinates = city_info.find_all('span', class_ = 'geo')
+        if len(coordinates) != 0:
+            #print(coordinates[0].getText())
+            cor = coordinates[0].getText().split(';')
+            latitude = cor[0].strip()
+            longitude = cor[1].strip()
+            #Create the tuple
+            loct_tup = (city, state, latitude, longitude, population)
+            my_tup = (city, state)
+            index = state_lst.index(state)
+            cord_dict[my_tup] = index
+            #print(loct_tup)
+            tuple_lst.append(loct_tup)
+    #print(tuple_lst)
+    return [tuple_lst, state_lst, cord_dict]
+  
+def get_max_capacity(city_dict):
     # Pulls the data from the page of the max capacity of all NFL game stadiums
     wiki_url = "https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums"
     request = requests.get(wiki_url)
@@ -94,20 +150,20 @@ def get_max_capacity(city_list):
             max_captacity = int(capacity[3].getText().strip("\n").replace(",", ""))
             #print(city_name)
             
-            # Loops thorught each NFL game location in city_list
-            for city in city_list:
+            # Loops thorught each NFL game location in city_dict
+            for k,y in city_dict.items():
                 # Checks if the current city name matches the city name of a game location
-                if city_name == city[0]:
+                if city_name == k[0]:
                     # Stores the max capacity of the stadium to the 
                     stadium_dict[city_name] = max_captacity
     #print(stadium_dict)
-    #print(city_list)
+    #print(city_dict)
     return stadium_dict
 
-def create_database(data_dict, city_list, stadium_dict):
+def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
     # Creates the databse
     path = os.path.dirname(os.path.abspath(__file__))
-    conn = sqlite3.connect(path + "/" + "NFL_game.db")
+    conn = sqlite3.connect(path + "/" + "Final_test.db")
     cur = conn.cursor()
     
     # Creates the database for the city list
@@ -116,6 +172,13 @@ def create_database(data_dict, city_list, stadium_dict):
 
     # Creates the databsse and adds the header
     cur.execute(""" CREATE TABLE IF NOT EXISTS Games (year INTEGER, month INTEGER, day INTEGER, location INTEGER, attendance INTEGER, capacity INTEGER, UNIQUE (year, month, day, location, attendance, capacity)) """)
+    conn.commit()
+    
+    #creates the coordinate database
+    cur.execute(""" CREATE TABLE IF NOT EXISTS Coordinates (city STRING, state INTEGER, longitude INTEGER, latitude INTEGER, population INTEGER, UNIQUE(city, state, longitude, latitude, population)) """)
+    conn.commit()
+    
+    cur.execute(""" CREATE TABLE IF NOT EXISTS Coord_Guide (Id INTEGER, state STRING, UNIQUE(Id, state)) """)
     conn.commit()
 
     # Creates a attendance list to check if the code is getting the attendance correctly
@@ -133,9 +196,26 @@ def create_database(data_dict, city_list, stadium_dict):
             # Gets the integers for the year, month, and day of each NFL game in data_dict
             year = key[0:4]
             month = key[5:7]
-            day = key[8:10]
-            # Loops throught city_list
-            for index in range(0, len(city_list)):
+            day = key[8:10]        
+            location = 0
+            key = ""
+            # Loops throught city_dict
+            for index, answer in city_dict.items():
+                # Checks if the current city name within data_dict matches the current city name within city_dict
+                if str(index[0]) == str(value[0][0]):
+                    #print(str(index[0]))
+                    #print(str(value[0]))
+                    # Loops throught stadium_dict
+                    for k,y in stadium_dict.items():
+                        # Checks if the city name city name match and set the maximum to y
+                        if str(k) == str(index[0]):
+                            maximum = y
+                    # Assigns a location index to the city
+                    location = int(answer)
+                    key = index
+            
+            
+            """ for index in range(0, len(city_list)):
                 # Checks if the current city name within data_dict matches the current city name within city_list
                 if str(city_list[index]) == str(value[0]):
                     #print(str(city_list[index]))
@@ -146,7 +226,7 @@ def create_database(data_dict, city_list, stadium_dict):
                         if str(k) == str(city_list[index][0]):
                             maximum = y
                     # Assigns a location index to the city
-                    location = index
+                    location = index """
             # Assigns the attendance of the game to the "attendance" variable
             attendance = value[1]
             #attendance_list.append(attendance)
@@ -156,9 +236,40 @@ def create_database(data_dict, city_list, stadium_dict):
             # Adds the row to the database
             else:
                 cur.execute("INSERT OR IGNORE INTO Games (year, month, day, location, attendance, capacity) VALUES (?,?,?,?,?,?)", (year, month, day, location, attendance, maximum))
-                cur.execute("INSERT OR IGNORE INTO Location (number, location) VALUES (?,?)", (location, str(city_list[location])))
+                cur.execute("INSERT OR IGNORE INTO Location (number, location) VALUES (?,?)", (location, str(city_dict[index])))
                 conn.commit()
                 data_counter += 1
+                
+    count = 0
+    #puts in 25 rows of data into the data base
+    for tup in tuple_lst:
+        #stops after 25 rows of data are put into the data base
+        if count == 25:
+            #print("Done with inputing data")
+            break
+        else:
+            city = tup[0]
+            state = tup[1]
+            state_index = state_lst.index(state)
+            longitude = tup[2]
+            latitude = tup[3]
+            population = tup[4]
+            #population = tup[4]
+            #adds the rows already in the database when running the code
+            if cur.execute("SELECT * FROM Coordinates WHERE city=? AND state=? AND longitude=? AND latitude=? AND population=?", (city, state_index, longitude, latitude, population)).fetchall():
+                continue
+            #adds new rows of data into the database
+            else:
+                cur.execute("INSERT OR IGNORE INTO Coordinates (city, state, longitude, latitude, population) VALUES (?,?,?,?,?)", (city, state_index, longitude, latitude, population))
+                cur.execute("INSERT OR IGNORE INTO Coord_Guide (Id, state) VALUES (?, ?)", (state_index, state))
+                conn.commit()
+                count += 1
+                #print("inputing data")
+                
+    # Joins the "Games" table and ""
+    #cur.execute("SELECT Games.")
+                 
+
 
 def create_graph(data_dict, stadium_dict):
     # Creates the dicitonaries that will be used for the bar graph
@@ -227,3 +338,22 @@ def create_graph(data_dict, stadium_dict):
     plt.show()
     
     return average_dict
+
+def create_scatter_graph(tuple_lst, import_dict):
+    #visualization
+    graph_x = []
+    graph_y = []
+    labels = []
+    for tup in tuple_lst:
+        temp_tup = (tup[0], tup[1])
+        for k, v in import_dict.items():
+            if k == temp_tup:
+                graph_x = [v] + graph_x
+                graph_y = [tup[4]] + graph_y
+                labels = [temp_tup] + labels
+    for i, label in enumerate(labels):
+        plt.annotate(label, (graph_x[i], graph_y[i]), textcoords="offset points", xytext=(5,5), ha='center')
+    plt.xlabel("percentage of stadium filled")
+    plt.ylabel("population of city")
+    plt.scatter(graph_x, graph_y)
+    plt.show()
