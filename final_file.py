@@ -148,30 +148,18 @@ def get_wiki_data():
     cord_dict[end_loc_tup] = index
     
     return [tuple_lst, state_lst, cord_dict]
-# Path to the database
-def create_db_connection():
+
+def fetch_weather_data(games, api_key, weather_elements, max_entries):
+    # Connect to the database created by create_database
     path = os.path.dirname(os.path.abspath(__file__))
-    conn = sqlite3.connect(path + "/" + "Weather.db")
-    return conn
-
-# Create the Cities table to store unique cities and their integer IDs
-def create_cities_table(conn):
+    conn = sqlite3.connect(path + "/" + "Final_test.db")
     cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS Cities (
-            city_id INTEGER PRIMARY KEY,
-            city_name TEXT UNIQUE
-        )
-    """)
-    conn.commit()
 
-# Create the Weather table with city_id column
-def create_weather_table(conn):
-    cur = conn.cursor()
+    # Create the Weather table if it doesn't exist
     cur.execute("""
         CREATE TABLE IF NOT EXISTS Weather (
             game_date TEXT, 
-            city_id INTEGER, 
+            location_id INTEGER, 
             max_temp REAL, 
             min_temp REAL, 
             precipitation REAL, 
@@ -179,79 +167,82 @@ def create_weather_table(conn):
             humidity REAL, 
             uv_index INTEGER, 
             conditions TEXT,
-            FOREIGN KEY (city_id) REFERENCES Cities (city_id),
-            UNIQUE(game_date, city_id)
+            FOREIGN KEY (location_id) REFERENCES Location (location_id),
+            UNIQUE(game_date, location_id)
         )
     """)
     conn.commit()
 
-# Function to fetch weather data for a specific game and process it
-def fetch_weather_data(games, api_key, weather_elements, max_entries):
-    conn = create_db_connection()
-    create_cities_table(conn)
-    create_weather_table(conn)
+    # Insert location data into the Location table
+    location_list = [game[1] for game in games]
+    location_list = list(set(location_list))  # Remove duplicates
 
-    city_list = [game[1] for game in games] 
-    city_list = list(set(city_list))
-
-    # Insert city data
-    cur = conn.cursor()
-    for city in city_list:
-        cur.execute("INSERT OR IGNORE INTO Cities (city_name) VALUES (?)", (city,))
+    for location in location_list:
+        # Insert unique locations into the Location table
+        cur.execute("""
+            INSERT OR IGNORE INTO Location (location) 
+            VALUES (?)
+        """, (location,))
     conn.commit()
 
     counter = 0
     with open('nfl_weather_data.csv', 'w', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(['Game Date', 'Location', 'Max Temperature (F)', 'Min Temperature (F)', 'Precipitation (inches)', 'Wind Speed (mph)', 'Humidity (%)', 'UV Index', 'Conditions'])
+        writer.writerow([
+            'Game Date', 'Location', 'Max Temperature (F)', 
+            'Min Temperature (F)', 'Precipitation (inches)', 
+            'Wind Speed (mph)', 'Humidity (%)', 'UV Index', 'Conditions'
+        ])
 
         # Loop through the games and fetch weather data
         for game in games:
             if counter >= max_entries:
                 break
-            game_date, location = game
+
+            game_date, location_name = game
             formatted_date = datetime.strptime(game_date, '%Y-%m-%d').date()
 
-            # Get city_id for the location
-            cur.execute("SELECT city_id FROM Cities WHERE city_name = ?", (location,))
-            city_id = cur.fetchone()[0]
+            # Get the location_id for the location_name
+            cur.execute("SELECT location FROM Location WHERE location = ?", (location_name,))
+            location_id = cur.fetchone()[0]
 
-            # Check if weather data already exists
-            cur.execute("SELECT * FROM Weather WHERE game_date = ? AND city_id = ?", (formatted_date.strftime('%Y-%m-%d'), city_id))
+            # Check if weather data already exists for this game and location
+            cur.execute("""
+                SELECT * FROM Weather WHERE game_date = ? AND location_id = ?
+            """, (formatted_date.strftime('%Y-%m-%d'), location_id))
             existing_data = cur.fetchone()
             if existing_data:
-                continue  
+                continue  # Skip if the data already exists
 
             # Fetch weather data from the API
-            url = f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{location}/{formatted_date}/{formatted_date}?unitGroup=us&elements={weather_elements}&key={api_key}&contentType=csv&include=days"
+            url = f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{location_name}/{formatted_date}/{formatted_date}?unitGroup=us&elements={weather_elements}&key={api_key}&contentType=csv&include=days"
             response = requests.get(url)
 
             if response.status_code == 200:
-                print(f"Success: Data for {location} on {formatted_date} fetched successfully.")
+                print(f"Success: Data for {location_name} on {formatted_date} fetched successfully.")
                 csv_data = response.text.splitlines()
                 for row in csv_data[1:]:
                     data = row.split(',')
-                    writer.writerow([formatted_date, location] + data[1:])
-                    cur.execute("""INSERT OR IGNORE INTO Weather (
-                        game_date, 
-                        city_id, 
-                        max_temp, 
-                        min_temp, 
-                        precipitation, 
-                        wind_speed, 
-                        humidity, 
-                        uv_index, 
-                        conditions
-                    ) VALUES (?,?,?,?,?,?,?,?,?)""", 
-                    (formatted_date, city_id, data[1], data[2], data[4], data[6], data[3], data[8], data[9]))
+                    writer.writerow([formatted_date, location_name] + data[1:])
+                    # Insert the weather data into the Weather table
+                    cur.execute("""
+                        INSERT OR IGNORE INTO Weather (
+                            game_date, location_id, max_temp, min_temp, 
+                            precipitation, wind_speed, humidity, uv_index, conditions
+                        ) VALUES (?,?,?,?,?,?,?,?,?)
+                    """, (
+                        formatted_date, location_id, data[1], data[2], 
+                        data[4], data[6], data[3], data[8], data[9]
+                    ))
                     conn.commit()
                     counter += 1
             else:
-                print(f"Error fetching data for {location} on {formatted_date}: {response.status_code}")
+                print(f"Error fetching data for {location_name} on {formatted_date}: {response.status_code}")
                 print(f"Error response text: {response.text}")
 
     print("Weather data for NFL games has been saved to nfl_weather_data.csv.")
-    return conn  
+    return conn
+
 
 def get_max_capacity(city_dict):
     # Pulls the data from the page of the max capacity of all NFL game stadiums
@@ -302,35 +293,81 @@ def get_max_capacity(city_dict):
     return stadium_dict
 
 def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
-    # Creates the databse
+    # Creates the database
     path = os.path.dirname(os.path.abspath(__file__))
     conn = sqlite3.connect(path + "/" + "Final_test.db")
     cur = conn.cursor()
-    
-    # Creates the database for the city list
-    cur.execute(""" CREATE TABLE IF NOT EXISTS Location (number INTEGER, location Text, latitude INTEGER, longitude INTEGER, 
-                UNIQUE (number, location)) """)
 
-    # Creates the databsse and adds the header
-    cur.execute(""" CREATE TABLE IF NOT EXISTS Games (year INTEGER, month INTEGER, day INTEGER, location INTEGER, attendance INTEGER, capacity INTEGER, 
-                UNIQUE (year, month, day, location, attendance, capacity)) """)
-    
-    #creates the coordinate database
-    cur.execute(""" CREATE TABLE IF NOT EXISTS Coordinates (city STRING, state INTEGER, latitude INTEGER, longitude INTEGER, population INTEGER, 
-                UNIQUE(city, state, latitude, longitude, population)) """)
-    
-    cur.execute(""" CREATE TABLE IF NOT EXISTS Coord_Guide (Id INTEGER, state STRING, UNIQUE(Id, state)) """)
+    # Create the Location table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS Location (
+            location_id INTEGER PRIMARY KEY, 
+            location_name TEXT UNIQUE, 
+            latitude INTEGER, 
+            longitude INTEGER, 
+            population INTEGER
+        )
+    """)
+
+    # Create the Weather table with location_id column (replaces city_id)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS Weather (
+            game_date TEXT, 
+            location_id INTEGER, 
+            max_temp REAL, 
+            min_temp REAL, 
+            precipitation REAL, 
+            wind_speed REAL, 
+            humidity REAL, 
+            uv_index INTEGER, 
+            conditions TEXT,
+            FOREIGN KEY (location_id) REFERENCES Location (location_id),
+            UNIQUE(game_date, location_id)
+        )
+    """)
     conn.commit()
 
-    # Creates a attendance list to check if the code is getting the attendance correctly
-    #attendance_list = []
+    # Create the Games table with location_id column (replaces city_id)
+    cur.execute(""" 
+        CREATE TABLE IF NOT EXISTS Games (
+            year INTEGER, 
+            month INTEGER, 
+            day INTEGER, 
+            location_id INTEGER, 
+            attendance INTEGER, 
+            capacity INTEGER, 
+            FOREIGN KEY(location_id) REFERENCES Location(location_id),
+            UNIQUE (year, month, day, location_id, attendance, capacity)
+        )
+    """)
+
+    # Creates the Coordinates table (just for reference, we won't use it in Weather or Games)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS Coordinates (
+            location_name TEXT, 
+            state INTEGER, 
+            latitude INTEGER, 
+            longitude INTEGER, 
+            population INTEGER, 
+            UNIQUE(location_name, state, latitude, longitude, population)
+        )
+    """)
+
+    # Create the Coord_Guide table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS Coord_Guide (
+            Id INTEGER, 
+            state STRING, 
+            UNIQUE(Id, state)
+        )
+    """)
+    conn.commit()
+
     data_counter = 0
     maximum = 0
 
-    # Loops throught data_dict to begin adding it to the database
-    for (key,value), (tup) in zip(data_dict.items(), tuple_lst):
-        #print(key, value)
-        # Checks if 25 rows of data have been added and breaks if it is true
+    # Loops through data_dict to begin adding it to the database
+    for (key, value), (tup) in zip(data_dict.items(), tuple_lst):
         if data_counter == 25:
             break
         else:
@@ -338,79 +375,77 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
             year = key[0:4]
             month = key[5:7]
             day = key[8:10]        
-            location = 0
+            location_id = 0
             key = ""
-            # Loops throught city_dict
+
+            # Loops through city_dict to find matching location and add it to the Location table
             for index, answer in city_dict.items():
-                # Checks if the current city name within data_dict matches the current city name within city_dict
                 index_str = index[0] + index[1][0:1]
                 value_str = value[0][0] + value[0][1][0:1]
-                #print(value)
                 if index_str == value_str:
-                    # Loops throught stadium_dict
-                    for k,y in stadium_dict.items():
-                        # Checks if the city name city name match and set the maximum to y
+                    for k, y in stadium_dict.items():
                         if str(k) == str(index[0]):
                             maximum = y
-                    # Assigns a location index to the city
-                    location = int(answer)
+                    location_id = int(answer)
                     key = index
-            
-            
-            """ for index in range(0, len(city_list)):
-                # Checks if the current city name within data_dict matches the current city name within city_list
-                if str(city_list[index]) == str(value[0]):
-                    #print(str(city_list[index]))
-                    #print(str(value[0]))
-                    # Loops throught stadium_dict
-                    for k,y in stadium_dict.items():
-                        # Checks if the city name city name match and set the maximum to y
-                        if str(k) == str(city_list[index][0]):
-                            maximum = y
-                    # Assigns a location index to the city
-                    location = index """
-            # Assigns the attendance of the game to the "attendance" variable
+
             attendance = value[1]
-            #attendance_list.append(attendance)
-            # Checks if the row of data already exists within the table of the database.
-            if cur.execute("SELECT * FROM Games WHERE year=? AND month=? AND day=? AND location=? AND attendance=? AND capacity=?", (year, month, day, location, attendance, maximum)).fetchall():
+
+            # Checks if the row of data already exists within the table
+            if cur.execute("SELECT * FROM Games WHERE year=? AND month=? AND day=? AND location_id=? AND attendance=? AND capacity=?", 
+                           (year, month, day, location_id, attendance, maximum)).fetchall():
                 continue
-            # Check if the location is valid
-            elif location == 0:
+            elif location_id == 0:
                 continue
-            # Adds the row to the database
             else:
-                city = tup[0]
+                location_name = tup[0]
                 state = tup[1]
                 state_index = state_lst.index(state)
                 longitude = tup[2]
                 latitude = tup[3]
                 population = tup[4]
-                #adds the rows already in the database when running the code
-                if cur.execute("SELECT * FROM Coordinates WHERE city=? AND state=? AND longitude=? AND latitude=? AND population=?", (city, state_index, longitude, latitude, longitude)).fetchall():
+
+                # Adds the location to the Location table if it doesn't exist
+                if cur.execute("SELECT * FROM Location WHERE location_name=? AND state=? AND longitude=? AND latitude=? AND population=?", 
+                               (location_name, state_index, longitude, latitude, population)).fetchall():
                     continue
-                #adds new rows of data into the database
                 else:
-                    cur.execute("INSERT OR IGNORE INTO Coordinates (city, state, longitude, latitude, population) VALUES (?,?,?,?,?)", (city, state_index, longitude, latitude, longitude))
-                    cur.execute("INSERT OR IGNORE INTO Coord_Guide (Id, state) VALUES (?, ?)", (state_index, state))
+                    cur.execute("INSERT OR IGNORE INTO Location (location_name, state, longitude, latitude, population) VALUES (?,?,?,?,?)", 
+                                (location_name, state_index, longitude, latitude, population))
                     conn.commit()
-                    #print("inputing data")
-                    
-                cur.execute("INSERT OR IGNORE INTO Games (year, month, day, location, attendance, capacity) VALUES (?,?,?,?,?,?)", (year, month, day, location, attendance, maximum))
-                cur.execute("INSERT OR IGNORE INTO Location (number, location, latitude, longitude) VALUES (?,?,?,?)", (location, str(key), latitude, longitude))
+
+                # Adds the new row to the Games table
+                cur.execute("INSERT OR IGNORE INTO Games (year, month, day, location_id, attendance, capacity) VALUES (?,?,?,?,?,?)", 
+                            (year, month, day, location_id, attendance, maximum))
                 conn.commit()
                 data_counter += 1
-    cur.execute("""SELECT Games.location, Games.year, Games.month, Games.day, Games.attendance, Games.capacity, Location.longitude, Location.latitude 
-                FROM Games 
-                JOIN Location ON Games.location = Location.number""")
+
+    # Create the All_Information table to store all the combined data
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS All_Information (
+            location_id INTEGER, 
+            year INTEGER, 
+            month INTEGER, 
+            day INTEGER, 
+            attendance INTEGER, 
+            capacity INTEGER, 
+            longitude INTEGER, 
+            latitude INTEGER, 
+            UNIQUE (year, month, day, location_id, attendance, capacity, longitude, latitude)
+        )
+    """)
+
+    # Select the combined data from Games and Location tables
+    cur.execute(""" 
+        SELECT Games.location_id, Games.year, Games.month, Games.day, Games.attendance, Games.capacity, Location.longitude, Location.latitude 
+        FROM Games 
+        JOIN Location ON Games.location_id = Location.location_id
+    """)
     
     result_list = cur.fetchall()
-    # Creates the databsse and adds the header
-    cur.execute(""" CREATE TABLE IF NOT EXISTS All_Information (location INTEGER, year INTEGER, month INTEGER, day INTEGER, attendance INTEGER, capacity INTEGER, longitude INTEGER, latitude INTEGER, 
-                UNIQUE (year, month, day, location, attendance, capacity, longitude, latitude)) """)
+
     for result in result_list:
-        print(result)
-        new_location_key = result[0]
+        new_location_id = result[0]
         new_year = result[1]
         new_month = result[2]
         new_day = result[3]
@@ -418,9 +453,12 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
         new_max = result[5]
         new_lat = result[6]
         new_long = result[7]
-        cur.execute("INSERT OR IGNORE INTO All_Information (location, year, month, day, attendance, capacity, latitude, longitude) VALUES (?,?,?,?,?,?,?,?)", (new_location_key, new_year, new_month, new_day, new_attendance, new_max, new_lat, new_long))
+
+        # Insert the result into the All_Information table
+        cur.execute("INSERT OR IGNORE INTO All_Information (location_id, year, month, day, attendance, capacity, latitude, longitude) VALUES (?,?,?,?,?,?,?,?)", 
+                    (new_location_id, new_year, new_month, new_day, new_attendance, new_max, new_lat, new_long))
         conn.commit()
-    
+
         
     
 """     #puts in 25 rows of data into the data base
@@ -576,11 +614,6 @@ def make_pie_chart(conn):
     plt.axis('equal')  
     plt.show()
     
-def create_db_connection(db_name="NFL_game.db"):
-    path = os.path.dirname(os.path.abspath(__file__))
-    conn = sqlite3.connect(path + "/" + db_name)
-    return conn
-
 def create_weather_attendance_graph(conn):
     # Query the Weather and Games tables to get weather conditions and attendance data
     cur = conn.cursor()
