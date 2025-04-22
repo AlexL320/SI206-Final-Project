@@ -9,6 +9,7 @@ import numpy as np
 import re
 import csv
 from datetime import datetime
+import seaborn as sns
 
 def get_game_data():
     # Gets the API data for every NFL games in the eyar 2023
@@ -574,6 +575,72 @@ def make_pie_chart(conn):
     plt.title('Percentage of Games with Different Weather Conditions', fontsize=16)
     plt.axis('equal')  
     plt.show()
+    
+def create_db_connection(db_name="NFL_game.db"):
+    path = os.path.dirname(os.path.abspath(__file__))
+    conn = sqlite3.connect(path + "/" + db_name)
+    return conn
+
+def create_weather_attendance_graph(conn):
+    # Query the Weather and Games tables to get weather conditions and attendance data
+    cur = conn.cursor()
+    cur.execute("""
+    SELECT conditions, AVG(attendance)
+    FROM Weather
+    JOIN Games ON Weather.city_id = Games.location
+    GROUP BY conditions
+    """)
+    weather_attendance_data = cur.fetchall()
+
+    if not weather_attendance_data:
+        print("No data found for weather and attendance.")
+        return
+    else:
+        print("Fetched weather and attendance data:", weather_attendance_data)
+
+    # Process the data into a dictionary: key = weather condition, value = list of attendance
+    weather_attendance = {}
+
+    for condition, attendance in weather_attendance_data:
+        # Categorize weather conditions into broader categories
+        if "rain" in condition.lower():
+            condition_category = "Rain"
+        elif "clear" in condition.lower():
+            condition_category = "Clear"
+        elif "cloudy" in condition.lower():
+            condition_category = "Cloudy"
+        elif "snow" in condition.lower():
+            condition_category = "Snow"
+        else:
+            condition_category = "Other"
+        
+        # Add the attendance to the list of the corresponding weather condition category
+        if condition_category not in weather_attendance:
+            weather_attendance[condition_category] = []
+        
+        weather_attendance[condition_category].append(attendance)
+    
+    # Calculate the average attendance for each weather condition
+    average_attendance = {condition: np.mean(attendances) for condition, attendances in weather_attendance.items()}
+    
+    # Prepare data for the graph
+    conditions = list(average_attendance.keys())
+    avg_attendance = list(average_attendance.values())
+    
+    sns.set(style="whitegrid")  # Set a seaborn style
+    plt.figure(figsize=(10,6))  # Increase figure size for better visibility
+    plt.bar(conditions, avg_attendance, color=sns.color_palette("coolwarm", len(conditions)))  # Use coolwarm color palette
+    
+    # Add labels and title with customized fonts
+    plt.xlabel('Weather Condition', fontsize=14, fontweight='bold')
+    plt.ylabel('Average Attendance', fontsize=14, fontweight='bold')
+    plt.title('Average Attendance per Weather Condition in NFL Games', fontsize=16, fontweight='bold')
+    
+    # Display the plot with rotated labels and tight layout
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    plt.show()
+
 
  # Define games
 games = [
@@ -683,4 +750,5 @@ api_key = 'N9DKDVJTSMT2WMRKEJBM7ZQ83'
 weather_elements = "datetime,tempmax,tempmin,humidity,precip,preciptype,windspeedmax,windspeedmin,uvindex,description"
 max_entries = 25
 conn = fetch_weather_data(games, api_key, weather_elements, max_entries)
+create_weather_attendance_graph(conn)
 
