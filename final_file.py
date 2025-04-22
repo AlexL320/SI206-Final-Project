@@ -7,6 +7,9 @@ import matplotlib.pyplot as plt
 from bs4 import BeautifulSoup
 import numpy as np 
 import re
+import csv
+from datetime import datetime
+import seaborn as sns
 
 def get_game_data():
     # Gets the API data for every NFL games in the eyar 2023
@@ -145,7 +148,111 @@ def get_wiki_data():
     cord_dict[end_loc_tup] = index
     
     return [tuple_lst, state_lst, cord_dict]
-  
+# Path to the database
+def create_db_connection():
+    path = os.path.dirname(os.path.abspath(__file__))
+    conn = sqlite3.connect(path + "/" + "Weather.db")
+    return conn
+
+# Create the Cities table to store unique cities and their integer IDs
+def create_cities_table(conn):
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS Cities (
+            city_id INTEGER PRIMARY KEY,
+            city_name TEXT UNIQUE
+        )
+    """)
+    conn.commit()
+
+# Create the Weather table with city_id column
+def create_weather_table(conn):
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS Weather (
+            game_date TEXT, 
+            city_id INTEGER, 
+            max_temp REAL, 
+            min_temp REAL, 
+            precipitation REAL, 
+            wind_speed REAL, 
+            humidity REAL, 
+            uv_index INTEGER, 
+            conditions TEXT,
+            FOREIGN KEY (city_id) REFERENCES Cities (city_id),
+            UNIQUE(game_date, city_id)
+        )
+    """)
+    conn.commit()
+
+# Function to fetch weather data for a specific game and process it
+def fetch_weather_data(games, api_key, weather_elements, max_entries):
+    conn = create_db_connection()
+    create_cities_table(conn)
+    create_weather_table(conn)
+
+    city_list = [game[1] for game in games] 
+    city_list = list(set(city_list))
+
+    # Insert city data
+    cur = conn.cursor()
+    for city in city_list:
+        cur.execute("INSERT OR IGNORE INTO Cities (city_name) VALUES (?)", (city,))
+    conn.commit()
+
+    counter = 0
+    with open('nfl_weather_data.csv', 'w', newline='', encoding='utf-8') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(['Game Date', 'Location', 'Max Temperature (F)', 'Min Temperature (F)', 'Precipitation (inches)', 'Wind Speed (mph)', 'Humidity (%)', 'UV Index', 'Conditions'])
+
+        # Loop through the games and fetch weather data
+        for game in games:
+            if counter >= max_entries:
+                break
+            game_date, location = game
+            formatted_date = datetime.strptime(game_date, '%Y-%m-%d').date()
+
+            # Get city_id for the location
+            cur.execute("SELECT city_id FROM Cities WHERE city_name = ?", (location,))
+            city_id = cur.fetchone()[0]
+
+            # Check if weather data already exists
+            cur.execute("SELECT * FROM Weather WHERE game_date = ? AND city_id = ?", (formatted_date.strftime('%Y-%m-%d'), city_id))
+            existing_data = cur.fetchone()
+            if existing_data:
+                continue  
+
+            # Fetch weather data from the API
+            url = f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{location}/{formatted_date}/{formatted_date}?unitGroup=us&elements={weather_elements}&key={api_key}&contentType=csv&include=days"
+            response = requests.get(url)
+
+            if response.status_code == 200:
+                print(f"Success: Data for {location} on {formatted_date} fetched successfully.")
+                csv_data = response.text.splitlines()
+                for row in csv_data[1:]:
+                    data = row.split(',')
+                    writer.writerow([formatted_date, location] + data[1:])
+                    cur.execute("""INSERT OR IGNORE INTO Weather (
+                        game_date, 
+                        city_id, 
+                        max_temp, 
+                        min_temp, 
+                        precipitation, 
+                        wind_speed, 
+                        humidity, 
+                        uv_index, 
+                        conditions
+                    ) VALUES (?,?,?,?,?,?,?,?,?)""", 
+                    (formatted_date, city_id, data[1], data[2], data[4], data[6], data[3], data[8], data[9]))
+                    conn.commit()
+                    counter += 1
+            else:
+                print(f"Error fetching data for {location} on {formatted_date}: {response.status_code}")
+                print(f"Error response text: {response.text}")
+
+    print("Weather data for NFL games has been saved to nfl_weather_data.csv.")
+    return conn  
+
 def get_max_capacity(city_dict):
     # Pulls the data from the page of the max capacity of all NFL game stadiums
     wiki_url = "https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums"
@@ -280,11 +387,11 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
                 latitude = tup[3]
                 population = tup[4]
                 #adds the rows already in the database when running the code
-                if cur.execute("SELECT * FROM Coordinates WHERE city=? AND state=? AND longitude=? AND latitude=? AND population=?", (city, state_index, longitude, latitude, longitude)).fetchall():
+                if cur.execute("SELECT * FROM Coordinates WHERE city=? AND state=? AND longitude=? AND latitude=? AND population=?", (city, state_index, latitude, longitude, population)).fetchall():
                     continue
                 #adds new rows of data into the database
                 else:
-                    cur.execute("INSERT OR IGNORE INTO Coordinates (city, state, longitude, latitude, population) VALUES (?,?,?,?,?)", (city, state_index, longitude, latitude, longitude))
+                    cur.execute("INSERT OR IGNORE INTO Coordinates (city, state, longitude, latitude, population) VALUES (?,?,?,?,?)", (city, state_index, latitude, longitude, population))
                     cur.execute("INSERT OR IGNORE INTO Coord_Guide (Id, state) VALUES (?, ?)", (state_index, state))
                     conn.commit()
                     #print("inputing data")
@@ -293,16 +400,18 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
                 cur.execute("INSERT OR IGNORE INTO Location (number, location, latitude, longitude) VALUES (?,?,?,?)", (location, str(key), latitude, longitude))
                 conn.commit()
                 data_counter += 1
+    # Joins some data from the "Location" table with the "Games" table
     cur.execute("""SELECT Games.location, Games.year, Games.month, Games.day, Games.attendance, Games.capacity, Location.longitude, Location.latitude 
                 FROM Games 
                 JOIN Location ON Games.location = Location.number""")
     
     result_list = cur.fetchall()
-    # Creates the databsse and adds the header
+    # Creates the database containing all of hte information needed for calculation and adds the header
     cur.execute(""" CREATE TABLE IF NOT EXISTS All_Information (location INTEGER, year INTEGER, month INTEGER, day INTEGER, attendance INTEGER, capacity INTEGER, longitude INTEGER, latitude INTEGER, 
                 UNIQUE (year, month, day, location, attendance, capacity, longitude, latitude)) """)
     for result in result_list:
-        print(result)
+        #print(result)
+        # Creates new values and assigned the information from the JOIN function to them
         new_location_key = result[0]
         new_year = result[1]
         new_month = result[2]
@@ -311,6 +420,7 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
         new_max = result[5]
         new_lat = result[6]
         new_long = result[7]
+        # Adds the information to the new database
         cur.execute("INSERT OR IGNORE INTO All_Information (location, year, month, day, attendance, capacity, latitude, longitude) VALUES (?,?,?,?,?,?,?,?)", (new_location_key, new_year, new_month, new_day, new_attendance, new_max, new_lat, new_long))
         conn.commit()
     
