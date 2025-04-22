@@ -355,20 +355,6 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
                     # Assigns a location index to the city
                     location = int(answer)
                     key = index
-            
-            
-            """ for index in range(0, len(city_list)):
-                # Checks if the current city name within data_dict matches the current city name within city_list
-                if str(city_list[index]) == str(value[0]):
-                    #print(str(city_list[index]))
-                    #print(str(value[0]))
-                    # Loops throught stadium_dict
-                    for k,y in stadium_dict.items():
-                        # Checks if the city name city name match and set the maximum to y
-                        if str(k) == str(city_list[index][0]):
-                            maximum = y
-                    # Assigns a location index to the city
-                    location = index """
             # Assigns the attendance of the game to the "attendance" variable
             attendance = value[1]
             #attendance_list.append(attendance)
@@ -387,11 +373,11 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
                 latitude = tup[3]
                 population = tup[4]
                 #adds the rows already in the database when running the code
-                if cur.execute("SELECT * FROM Coordinates WHERE city=? AND state=? AND longitude=? AND latitude=? AND population=?", (city, state_index, latitude, longitude, population)).fetchall():
+                if cur.execute("SELECT * FROM Coordinates WHERE city=? AND state=? AND latitude=? AND longitude=? AND population=?", (city, state_index, latitude, longitude, population)).fetchall():
                     continue
                 #adds new rows of data into the database
                 else:
-                    cur.execute("INSERT OR IGNORE INTO Coordinates (city, state, longitude, latitude, population) VALUES (?,?,?,?,?)", (city, state_index, latitude, longitude, population))
+                    cur.execute("INSERT OR IGNORE INTO Coordinates (city, state, latitude, longitude, population) VALUES (?,?,?,?,?)", (city, state_index, latitude, longitude, population))
                     cur.execute("INSERT OR IGNORE INTO Coord_Guide (Id, state) VALUES (?, ?)", (state_index, state))
                     conn.commit()
                     #print("inputing data")
@@ -408,7 +394,7 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
     result_list = cur.fetchall()
     # Creates the database containing all of hte information needed for calculation and adds the header
     cur.execute(""" CREATE TABLE IF NOT EXISTS All_Information (location INTEGER, year INTEGER, month INTEGER, day INTEGER, attendance INTEGER, capacity INTEGER, longitude INTEGER, latitude INTEGER, 
-                UNIQUE (year, month, day, location, attendance, capacity, longitude, latitude)) """)
+                UNIQUE (year, month, day, location, attendance, capacity, latitude, longitude)) """)
     for result in result_list:
         #print(result)
         # Creates new values and assigned the information from the JOIN function to them
@@ -423,93 +409,56 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
         # Adds the information to the new database
         cur.execute("INSERT OR IGNORE INTO All_Information (location, year, month, day, attendance, capacity, latitude, longitude) VALUES (?,?,?,?,?,?,?,?)", (new_location_key, new_year, new_month, new_day, new_attendance, new_max, new_lat, new_long))
         conn.commit()
-    
-        
-    
-"""     #puts in 25 rows of data into the data base
-    for tup in tuple_lst:
-        #stops after 25 rows of data are put into the data base
-        if data_counter == 25:
-            #print("Done with inputing data")
-            break
-        else:
-            city = tup[0]
-            state = tup[1]
-            state_index = state_lst.index(state)
-            longitude = tup[2]
-            latitude = tup[3]
-            population = tup[4]
-            #adds the rows already in the database when running the code
-            if cur.execute("SELECT * FROM Coordinates WHERE city=? AND state=? AND longitude=? AND latitude=? AND population=?", (city, state_index, longitude, latitude, population)).fetchall():
-                continue
-            #adds new rows of data into the database
-            else:
-                cur.execute("INSERT OR IGNORE INTO Coordinates (city, state, longitude, latitude, population) VALUES (?,?,?,?,?)", (city, state_index, longitude, latitude, population))
-                cur.execute("INSERT OR IGNORE INTO Coord_Guide (Id, state) VALUES (?, ?)", (state_index, state))
-                conn.commit()
-                data_counter += 1
-                #print("inputing data")
-                
-    # Joins the "Games" table and ""
-    #cur.execute("SELECT Games.") """
-                 
 
-
-def create_graph(data_dict, stadium_dict):
-    # Creates the dicitonaries that will be used for the bar graph
-    game_attendance_dict = {}
-    average_dict = {}
-    game_key = ""
-    # Loops throught stadium_dict
-    for key,values in stadium_dict.items():
-        #print(key)
-        # Creates a list to store how full each statdium was in each game
-        percent_list = []
-        # Values that will help determine the average percentage of how full the stadium was in each city
-        day_counter = 0
-        total_percent = 0.0
-        # Loops throught data_dict to find the attendance
-        for index,items in data_dict.items():
-            #print(items[0][0])
-            #print(index)
-            # Checks if the city within key in stadium_dict and the city within index in data_dict match
-            if key == items[0][0]:
-                # Sets the gmae_key to the location of the game within data_dict
-                game_key = items[0]
-                #print("match")
-                #print(items[1])
-                #print(values)
-                # Calculates how full the stadium was in the current game
-                percentage = items[1] / values
-                percentage = int(percentage * 10000) / 10000
-                day_percent = (index, percentage)
-                # Adds the percentage to percent_list
-                percent_list.append(day_percent)
-                #print(percent_list)
-                # Changes the values accordingly
-                day_counter += 1
-                total_percent += percentage
-        # Adds percent_list to the current city
-        game_attendance_dict[game_key] = percent_list
-        # Calculates how full the each stadium was on average, if there were any games played there
-        if day_counter > 0:
-            average_dict[game_key] = round(((int((total_percent / int(day_counter)) * 10000) / 10000) * 100), 2)
-
-    #print(game_attendance_dict)
-    #print(average_dict)
-
-    # Creates the list that will be used to label to graph
+def create_graph():
+    #visualization
     graph_x = []
     graph_y = []
-    # Adds the vakue of how full the each stadium was on average to the end of each bar in the bar graph
-    for key, value in average_dict.items():
-        graph_x.append(str(key[0] + ", " + key[1]))
-        graph_y.append(float(value))
-    #print(graph_x)
-    #print(graph_y)
+    labels = []
+    
+    connection= sqlite3.connect('final_test.db')
+    
+    cursor_loct = connection.cursor()
+    cursor_loct.execute("SELECT * FROM Location")
+    rows_loct = cursor_loct.fetchall()
+    
+    cursor_cap = connection.cursor()
+    cursor_cap.execute("SELECT * FROM Games")
+    rows_cap = cursor_cap.fetchall()
+    
+    
+    for loct in rows_loct:
+        visited = []
+        #print(loct)
+        loct_id = loct[0]
+        loct = loct[1]
+        loct_lst = loct.split(',')
+        loct_city = loct_lst[0].strip('(').strip("'")
+        loct_state = loct_lst[1].strip(')').strip("'")
+        loct_state = loct_state.strip(" '")
+        location = loct_city + ", " + loct_state
+        percent_list = []
+        for cap in rows_cap:
+            percent = 0.0
+            #print(cap)
+            cap_id = cap[3]     
+            if cap_id == loct_id:
+                attendance = cap[4]
+                capacity = cap[5]
+                percent = (attendance / capacity)
+                percent_list.append(percent)
+        average = sum(percent_list) / len(percent_list)
+        average = int(average * 10000) / 100
+        temp_tup = (location, average)
+        if temp_tup not in visited:
+            graph_x.append(average)
+            graph_y.append(location)
+            visited.append(temp_tup)
 
     # Plots the attendance as a bar graph
-    plt.barh(graph_x, graph_y)
+    print(graph_x)
+    print(graph_y)
+    plt.barh(graph_y, graph_x)
     # Adds the title and labels to the bar graph
     plt.title("Average attendance percentage for each NFL stadium")
     plt.xlabel("Percentage")
@@ -517,27 +466,63 @@ def create_graph(data_dict, stadium_dict):
 
     # Adds the percentage to the end of each bar in the bar graph
     for index in range(len(graph_x)):
-        plt.text(graph_y[index], graph_x[index], str(graph_y[index]), va="center")
-
+        plt.text(graph_y[index], graph_x[index], "top", va="center")
     plt.show()
-    
-    return average_dict
 
-def create_scatter_graph(tuple_lst, import_dict):
+def create_scatter_graph():
     #visualization
     graph_x = []
     graph_y = []
     labels = []
-    for tup in tuple_lst:
-        temp_tup = (tup[0], tup[1])
-        for k, v in import_dict.items():
-            if k == temp_tup:
-                graph_x = [v] + graph_x
-                graph_y = [tup[4]] + graph_y
-                labels = [temp_tup] + labels
+    
+    connection= sqlite3.connect('final_test.db')
+    cursor_coor = connection.cursor()
+    cursor_coor.execute("SELECT * FROM Coordinates")
+    rows_coor = cursor_coor.fetchall()
+    
+    cursor_loct = connection.cursor()
+    cursor_loct.execute("SELECT * FROM Location")
+    rows_loct = cursor_loct.fetchall()
+    
+    cursor_cap = connection.cursor()
+    cursor_cap.execute("SELECT * FROM Games")
+    rows_cap = cursor_cap.fetchall()
+    
+    cursor_guide = connection.cursor()
+    cursor_guide.execute("SELECT * FROM Coord_Guide")
+    rows_guide = cursor_guide.fetchall()
+    
+    location_lst = []
+    for coor in rows_coor:
+        state = None
+        population = None
+        state_num = coor[1]
+        for guide in rows_guide:
+            if guide[0] == state_num:
+                state = guide[1]
+                population = coor[4]
+                city = coor[0]
+        for cap in rows_cap:
+            percentage = int((cap[4] / cap[5]) * 10000) / 100
+            cap_num = cap[3]
+            for loct in rows_loct:
+                loct_num = loct[0]
+                if cap_num == loct_num:
+                    location_str = loct[1]
+                    loct_lst = location_str.split(',')
+                    loct_city = loct_lst[0].strip('(').strip("'")
+                    loct_state = loct_lst[1].strip(')').strip("'")
+                    loct_state = loct_state.strip(" '")
+                    location = (loct_city, loct_state)
+                    temp_tup = (city, state)
+                    if temp_tup == location:
+                        if location not in location_lst:
+                            graph_x = [percentage] + graph_x
+                            graph_y = [population] + graph_y
+                            labels = [temp_tup] + labels
+                            location_lst.append(location)
     for i, label in enumerate(labels):
         plt.annotate(label, (graph_x[i], graph_y[i]), textcoords="offset points", xytext=(5,5), ha='center')
-    plt.title("Average attendance percentage for each NFL stadium")
     plt.xlabel("percentage of stadium filled")
     plt.ylabel("population of city")
     plt.scatter(graph_x, graph_y)
