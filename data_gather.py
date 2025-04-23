@@ -200,6 +200,7 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
             month = key[5:7]
             day = key[8:10]        
             location = 0
+            key = ""
             # Loops throught city_dict
             for index, answer in city_dict.items():
                 # Checks if the current city name within data_dict matches the current city name within city_dict
@@ -241,9 +242,7 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
                     conn.commit()
                     
                 cur.execute("INSERT OR IGNORE INTO Games (year, month, day, location, attendance, capacity) VALUES (?,?,?,?,?,?)", (year, month, day, location, attendance, maximum))
-                print(str(key))
-                if "," in str(key):
-                    cur.execute("INSERT OR IGNORE INTO Location (number, location, latitude, longitude) VALUES (?,?,?,?)", (location, str(key), latitude, longitude))
+                cur.execute("INSERT OR IGNORE INTO Location (number, location, latitude, longitude) VALUES (?,?,?,?)", (location, str(key), latitude, longitude))
                 conn.commit()
                 data_counter += 1
     # Joins some data from the "Location" table with the "Games" table
