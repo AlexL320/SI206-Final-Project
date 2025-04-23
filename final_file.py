@@ -459,37 +459,6 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
                     (new_location_id, new_year, new_month, new_day, new_attendance, new_max, new_lat, new_long))
         conn.commit()
 
-        
-    
-"""     #puts in 25 rows of data into the data base
-    for tup in tuple_lst:
-        #stops after 25 rows of data are put into the data base
-        if data_counter == 25:
-            #print("Done with inputing data")
-            break
-        else:
-            city = tup[0]
-            state = tup[1]
-            state_index = state_lst.index(state)
-            longitude = tup[2]
-            latitude = tup[3]
-            population = tup[4]
-            #adds the rows already in the database when running the code
-            if cur.execute("SELECT * FROM Coordinates WHERE city=? AND state=? AND longitude=? AND latitude=? AND population=?", (city, state_index, longitude, latitude, population)).fetchall():
-                continue
-            #adds new rows of data into the database
-            else:
-                cur.execute("INSERT OR IGNORE INTO Coordinates (city, state, longitude, latitude, population) VALUES (?,?,?,?,?)", (city, state_index, longitude, latitude, population))
-                cur.execute("INSERT OR IGNORE INTO Coord_Guide (Id, state) VALUES (?, ?)", (state_index, state))
-                conn.commit()
-                data_counter += 1
-                #print("inputing data")
-                
-    # Joins the "Games" table and ""
-    #cur.execute("SELECT Games.") """
-                 
-
-
 def create_graph(data_dict, stadium_dict):
     # Creates the dicitonaries that will be used for the bar graph
     game_attendance_dict = {}
