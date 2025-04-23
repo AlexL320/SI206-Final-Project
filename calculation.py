@@ -44,6 +44,7 @@ def create_graph():
             # Calculates the average attendance percentage for each location
             average = sum(percent_list) / len(percent_list)
             average = int(average * 10000) / 100
+            input_data = average
             temp_tup = (location, average)
             # Adds a unique temp_tup to the visited list
             if temp_tup not in visited:
@@ -63,7 +64,8 @@ def create_graph():
         # Add a little space to the right of the bar to position the label
         plt.text(percent + 1, i, f"{percent:.2f}%", va='center')
     plt.show()
-
+    
+    
 def create_scatter_graph():
     #visualization
     graph_x = []
@@ -122,6 +124,7 @@ def create_scatter_graph():
     plt.ylabel("population of city")
     plt.scatter(graph_x, graph_y)
     plt.show()
+    return (graph_x, graph_y)
     
 # Function to create a pie chart for weather conditions
 def make_pie_chart(conn):
@@ -218,3 +221,9 @@ def create_weather_attendance_graph(conn):
 api_key = 'N9DKDVJTSMT2WMRKEJBM7ZQ83'
 weather_elements = "datetime,tempmax,tempmin,humidity,precip,preciptype,windspeedmax,windspeedmin,uvindex,description"
 max_entries = 25
+
+input_data1 = create_scatter_graph()[0]
+input_data2 = create_scatter_graph()[1]
+f = open("input.txt", 'a')
+for i in range(len(input_data1)):
+    f.write(f"The calculation for the average attendance for each game: average: {input_data1[i]}, population of city: {input_data2[i]}\n")
