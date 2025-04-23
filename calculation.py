@@ -1,4 +1,5 @@
 from final_file import *
+from data_gather import *
 
 data_list = ()
 data_list = get_game_data()
@@ -16,6 +17,8 @@ print(create_database(data_list[0], city_dict, max_capacity, wiki_data, state_li
 create_graph()
 
 create_scatter_graph()
+
+games = game_data()
 
 conn = fetch_weather_data(games, api_key, weather_elements, max_entries)
 make_pie_chart(conn)
