@@ -14,8 +14,8 @@ max_capacity = get_max_capacity(city_dict)
 #create_database(data_list[0], city_dict, max_capacity, wiki_data, state_list)
 print(create_database(data_list[0], city_dict, max_capacity, wiki_data, state_list))
 
-im_dict = create_graph(data_list[0], max_capacity)
+im_dict = create_graph()
 
-create_scatter_graph(wiki_data, im_dict)
+create_scatter_graph()
 
 make_pie_chart(conn)
