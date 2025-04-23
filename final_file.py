@@ -293,13 +293,17 @@ def game_data():
         month = row[1]
         day = row[2]
         date = f"{year}-{month}-{day}"
-        location_num = row[0]
+        location_num = row[3]
         for location in rows_location:
-            if location_num == location:
-                first_half = location[1].split(',')
-                city = first_half.strip("('")
+            first = location[0]
+            #print(first)
+            if location_num == first:
+                locat_lst = location[1].split(',')
+                first_half = locat_lst[0].strip("('")
+                city = first_half
                 temp_tup = (date, city)
                 games.append(temp_tup)
+    return games
 
 
 def fetch_weather_data(games, api_key, weather_elements, max_entries):
