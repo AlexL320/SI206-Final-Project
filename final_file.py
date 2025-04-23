@@ -153,6 +153,7 @@ def get_max_capacity(city_dict):
                     stadium_dict[city_name] = max_captacity
     return stadium_dict
 
+
 def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
     # Creates the databse
     path = os.path.dirname(os.path.abspath(__file__))
@@ -274,7 +275,33 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
         # Adds the information to the new database
         cur.execute("INSERT OR IGNORE INTO All_Information (location, year, month, day, attendance, capacity, latitude, longitude) VALUES (?,?,?,?,?,?,?,?)", (new_location_key, new_year, new_month, new_day, new_attendance, new_max, new_lat, new_long))
         conn.commit()
-        
+
+# Define games
+def game_data():
+    games = []
+    connection = sqlite3.connect('Final_test.db')
+    cursor_all = connection.cursor()
+    cursor_all.execute("SELECT * FROM Games")
+    rows_all = cursor_all.fetchall()
+
+    cursor_location = connection.cursor()
+    cursor_location.execute("SELECT * FROM Location")
+    rows_location = cursor_location.fetchall()
+
+    for row in rows_all:
+        year = row[0]
+        month = row[1]
+        day = row[2]
+        date = f"{year}-{month}-{day}"
+        location_num = row[0]
+        for location in rows_location:
+            if location_num == location:
+                first_half = location[1].split(',')
+                city = first_half.strip("('")
+                temp_tup = (date, city)
+                games.append(temp_tup)
+
+
 def fetch_weather_data(games, api_key, weather_elements, max_entries):
     # Connect to the database created by create_database
     path = os.path.dirname(os.path.abspath(__file__))
@@ -576,33 +603,9 @@ def create_weather_attendance_graph(conn):
     plt.tight_layout()
     plt.show()
     
-# Define games
-games = []
-connection = sqlite3.connect('Final_test.db')
-cursor_all = connection.cursor()
-cursor_all.execute("SELECT * FROM Games")
-rows_all = cursor_all.fetchall()
-
-cursor_location = connection.cursor()
-cursor_location.execute("SELECT * FROM Location")
-rows_location = cursor_location.fetchall()
-
-for row in rows_all:
-    year = row[0]
-    month = row[1]
-    day = row[2]
-    date = f"{year}-{month}-{day}"
-    location_num = row[0]
-    for location in rows_location:
-        if location_num == location:
-            first_half = location[1].split(',')
-            city = first_half.strip("('")
-            temp_tup = (date, city)
-            games.append(temp_tup)
 
 # Define API key and weather elements to fetch
 api_key = 'N9DKDVJTSMT2WMRKEJBM7ZQ83'
 weather_elements = "datetime,tempmax,tempmin,humidity,precip,preciptype,windspeedmax,windspeedmin,uvindex,description"
 max_entries = 25
-conn = fetch_weather_data(games, api_key, weather_elements, max_entries)
-create_weather_attendance_graph(conn)
+games = game_data()
