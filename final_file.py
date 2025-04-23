@@ -11,6 +11,8 @@ import csv
 from datetime import datetime
 import seaborn as sns
 
+
+
 def get_game_data():
     # Gets the API data for every NFL games in the eyar 2023
     # The URL from the API github
@@ -148,100 +150,6 @@ def get_wiki_data():
     cord_dict[end_loc_tup] = index
     
     return [tuple_lst, state_lst, cord_dict]
-
-def fetch_weather_data(games, api_key, weather_elements, max_entries):
-    # Connect to the database created by create_database
-    path = os.path.dirname(os.path.abspath(__file__))
-    conn = sqlite3.connect(path + "/" + "Final_test.db")
-    cur = conn.cursor()
-
-    # Create the Weather table if it doesn't exist
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS Weather (
-            game_date TEXT, 
-            location_id INTEGER, 
-            max_temp REAL, 
-            min_temp REAL, 
-            precipitation REAL, 
-            wind_speed REAL, 
-            humidity REAL, 
-            uv_index INTEGER, 
-            conditions TEXT,
-            FOREIGN KEY (location_id) REFERENCES Location (location_id),
-            UNIQUE(game_date, location_id)
-        )
-    """)
-    conn.commit()
-
-    # Insert location data into the Location table
-    location_list = [game[1] for game in games]
-    location_list = list(set(location_list))  # Remove duplicates
-
-    for location in location_list:
-        # Insert unique locations into the Location table
-        cur.execute("""
-            INSERT OR IGNORE INTO Location (location) 
-            VALUES (?)
-        """, (location,))
-    conn.commit()
-
-    counter = 0
-    with open('nfl_weather_data.csv', 'w', newline='', encoding='utf-8') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow([
-            'Game Date', 'Location', 'Max Temperature (F)', 
-            'Min Temperature (F)', 'Precipitation (inches)', 
-            'Wind Speed (mph)', 'Humidity (%)', 'UV Index', 'Conditions'
-        ])
-
-        # Loop through the games and fetch weather data
-        for game in games:
-            if counter >= max_entries:
-                break
-
-            game_date, location_name = game
-            formatted_date = datetime.strptime(game_date, '%Y-%m-%d').date()
-
-            # Get the location_id for the location_name
-            cur.execute("SELECT location FROM Location WHERE location = ?", (location_name,))
-            location_id = cur.fetchone()[0]
-
-            # Check if weather data already exists for this game and location
-            cur.execute("""
-                SELECT * FROM Weather WHERE game_date = ? AND location_id = ?
-            """, (formatted_date.strftime('%Y-%m-%d'), location_id))
-            existing_data = cur.fetchone()
-            if existing_data:
-                continue  # Skip if the data already exists
-
-            # Fetch weather data from the API
-            url = f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{location_name}/{formatted_date}/{formatted_date}?unitGroup=us&elements={weather_elements}&key={api_key}&contentType=csv&include=days"
-            response = requests.get(url)
-
-            if response.status_code == 200:
-                print(f"Success: Data for {location_name} on {formatted_date} fetched successfully.")
-                csv_data = response.text.splitlines()
-                for row in csv_data[1:]:
-                    data = row.split(',')
-                    writer.writerow([formatted_date, location_name] + data[1:])
-                    # Insert the weather data into the Weather table
-                    cur.execute("""
-                        INSERT OR IGNORE INTO Weather (
-                            game_date, location_id, max_temp, min_temp, 
-                            precipitation, wind_speed, humidity, uv_index, conditions
-                        ) VALUES (?,?,?,?,?,?,?,?,?)
-                    """, (
-                        formatted_date, location_id, data[1], data[2], 
-                        data[4], data[6], data[3], data[8], data[9]
-                    ))
-                    conn.commit()
-                    counter += 1
-            else:
-                print(f"Error fetching data for {location_name} on {formatted_date}: {response.status_code}")
-                print(f"Error response text: {response.text}")
-
-    print("Weather data for NFL games has been saved to nfl_weather_data.csv.")
-    return conn
 
 def get_max_capacity(city_dict):
     # Pulls the data from the page of the max capacity of all NFL game stadiums
@@ -416,6 +324,100 @@ def create_database(data_dict, city_dict, stadium_dict, tuple_lst, state_lst):
         # Adds the information to the new database
         cur.execute("INSERT OR IGNORE INTO All_Information (location, year, month, day, attendance, capacity, latitude, longitude) VALUES (?,?,?,?,?,?,?,?)", (new_location_key, new_year, new_month, new_day, new_attendance, new_max, new_lat, new_long))
         conn.commit()
+        
+def fetch_weather_data(games, api_key, weather_elements, max_entries):
+    # Connect to the database created by create_database
+    path = os.path.dirname(os.path.abspath(__file__))
+    conn = sqlite3.connect(path + "/" + "Final_test.db")
+    cur = conn.cursor()
+
+    # Create the Weather table if it doesn't exist
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS Weather (
+            game_date TEXT, 
+            location_id INTEGER, 
+            max_temp REAL, 
+            min_temp REAL, 
+            precipitation REAL, 
+            wind_speed REAL, 
+            humidity REAL, 
+            uv_index INTEGER, 
+            conditions TEXT,
+            FOREIGN KEY (location_id) REFERENCES Location (location_id),
+            UNIQUE(game_date, location_id)
+        )
+    """)
+    conn.commit()
+
+    # Insert location data into the Location table
+    location_list = [game[1] for game in games]
+    location_list = list(set(location_list))  # Remove duplicates
+
+    for location in location_list:
+        # Insert unique locations into the Location table
+        cur.execute("""
+            INSERT OR IGNORE INTO Location (location) 
+            VALUES (?)
+        """, (location,))
+    conn.commit()
+
+    counter = 0
+    with open('nfl_weather_data.csv', 'w', newline='', encoding='utf-8') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow([
+            'Game Date', 'Location', 'Max Temperature (F)', 
+            'Min Temperature (F)', 'Precipitation (inches)', 
+            'Wind Speed (mph)', 'Humidity (%)', 'UV Index', 'Conditions'
+        ])
+
+        # Loop through the games and fetch weather data
+        for game in games:
+            if counter >= max_entries:
+                break
+
+            game_date, location_name = game
+            formatted_date = datetime.strptime(game_date, '%Y-%m-%d').date()
+
+            # Get the location_id for the location_name
+            cur.execute("SELECT location FROM Location WHERE location = ?", (location_name,))
+            location_id = cur.fetchone()[0]
+
+            # Check if weather data already exists for this game and location
+            cur.execute("""
+                SELECT * FROM Weather WHERE game_date = ? AND location_id = ?
+            """, (formatted_date.strftime('%Y-%m-%d'), location_id))
+            existing_data = cur.fetchone()
+            if existing_data:
+                continue  # Skip if the data already exists
+
+            # Fetch weather data from the API
+            url = f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{location_name}/{formatted_date}/{formatted_date}?unitGroup=us&elements={weather_elements}&key={api_key}&contentType=csv&include=days"
+            response = requests.get(url)
+
+            if response.status_code == 200:
+                print(f"Success: Data for {location_name} on {formatted_date} fetched successfully.")
+                csv_data = response.text.splitlines()
+                for row in csv_data[1:]:
+                    data = row.split(',')
+                    writer.writerow([formatted_date, location_name] + data[1:])
+                    # Insert the weather data into the Weather table
+                    cur.execute("""
+                        INSERT OR IGNORE INTO Weather (
+                            game_date, location_id, max_temp, min_temp, 
+                            precipitation, wind_speed, humidity, uv_index, conditions
+                        ) VALUES (?,?,?,?,?,?,?,?,?)
+                    """, (
+                        formatted_date, location_id, data[1], data[2], 
+                        data[4], data[6], data[3], data[8], data[9]
+                    ))
+                    conn.commit()
+                    counter += 1
+            else:
+                print(f"Error fetching data for {location_name} on {formatted_date}: {response.status_code}")
+                print(f"Error response text: {response.text}")
+
+    print("Weather data for NFL games has been saved to nfl_weather_data.csv.")
+    return conn
 
 def create_graph():
     # Lists for the x and y axis
@@ -580,7 +582,7 @@ def create_weather_attendance_graph(conn):
     cur.execute("""
     SELECT conditions, AVG(attendance)
     FROM Weather
-    JOIN Games ON Weather.city_id = Games.location
+    JOIN Games ON Weather.location_id = Games.location
     GROUP BY conditions
     """)
     weather_attendance_data = cur.fetchall()
@@ -634,9 +636,7 @@ def create_weather_attendance_graph(conn):
     plt.tight_layout()
     plt.show()
     
-
-
- # Define games
+# Define games
 games = [
    ('2023-09-08', 'Kansas City'),
    ('2023-09-10', 'Baltimore'),
@@ -743,5 +743,3 @@ games = [
 api_key = 'N9DKDVJTSMT2WMRKEJBM7ZQ83'
 weather_elements = "datetime,tempmax,tempmin,humidity,precip,preciptype,windspeedmax,windspeedmin,uvindex,description"
 max_entries = 25
-conn = fetch_weather_data(games, api_key, weather_elements, max_entries)
-create_weather_attendance_graph(conn)
